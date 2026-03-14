@@ -1,0 +1,27 @@
+{
+    "extends": [
+        "react-app",
+        "react-app/jest"
+    ],
+    "rules": {
+        "no-console": [
+            "warn",
+            {
+                "allow": [
+                    "warn",
+                    "error"
+                ]
+            }
+        ]
+    },
+    "overrides": [
+        {
+            "files": [
+                "src/utils/logger.js"
+            ],
+            "rules": {
+                "no-console": "off"
+            }
+        }
+    ]
+}
