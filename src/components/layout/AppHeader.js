@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthProvider';
+import { BRAND } from '../../config/brand';
 import '../../styles/portal.css';
 
 export default function AppHeader() {
@@ -11,8 +12,8 @@ export default function AppHeader() {
   return (
     <header className="app-header">
       <div className="brand">
-        {company?.name || 'VEU Portal'}
-        <small>VEU installation reporting</small>
+        {BRAND.name}
+        <small>{company?.name && company.name !== BRAND.name ? company.name : BRAND.tagline}</small>
       </div>
       <nav>
         <NavLink to="/" end>Jobs</NavLink>

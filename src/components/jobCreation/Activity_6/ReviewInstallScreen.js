@@ -320,6 +320,16 @@ export default function ReviewInstallScreen() {
             value={formData.amountOfBenefit}
             onChange={(v) => handleChange('amountOfBenefit', v)}
           />
+          <Field
+            label="Price of installed product(s) incl. GST, before VEEC incentive ($)"
+            value={formData.priceBeforeVeec}
+            onChange={(v) => handleChange('priceBeforeVeec', v)}
+          />
+          <Field
+            label="Consumer payment for installed product(s) incl. GST ($)"
+            value={formData.consumerPayment}
+            onChange={(v) => handleChange('consumerPayment', v)}
+          />
           <CollapsibleSection
             id={`invoice`}
             title="Invoice"
