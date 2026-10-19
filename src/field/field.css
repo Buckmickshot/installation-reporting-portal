@@ -1,11 +1,11 @@
 /* ASAP Field — installer app (mobile first) */
 .field-app {
-  --navy: #1e2f40; --accent: #2f8fd8; --accent-ink: #1f6fa8;
-  --ink: #17212c; --ink-2: #5b6878; --line: #dfe5eb; --bg: #f2f5f8;
-  --good: #1e8a5a; --good-bg: #e3f5ec; --warn: #a8640b; --warn-bg: #fdf1dc;
+  --navy: #0F2233; --accent: #1F6BC0; --accent-ink: #1A5FAE;
+  --ink: #13202D; --ink-2: #4C5A69; --line: #DCE3EA; --bg: #F4F6F8;
+  --good: #18744C; --good-bg: #E2F3EA; --warn: #8F5507; --warn-bg: #FCEFD7;
   --info: #1f6fa8; --info-bg: #e3f0fa; --bad: #b4322b; --bad-bg: #fbe7e5; --muted-bg: #eef1f4;
   min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 17px;
   -webkit-tap-highlight-color: transparent;
 }
 .field-app * { box-sizing: border-box; }
@@ -26,7 +26,7 @@
 .f-hello { font-size: 1.4rem; margin: 6px 0 0; }
 .f-muted { color: var(--ink-2); font-size: .9rem; margin: 0; }
 .f-muted.small, .small { font-size: .8rem; }
-.f-mono { font-family: ui-monospace, Menlo, monospace; font-size: .85rem; }
+.f-mono { font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: .85rem; }
 
 .f-seg { display: grid; grid-template-columns: 1fr 1fr; background: #e3e8ee; padding: 4px; border-radius: 12px; }
 .f-seg button { border: 0; background: transparent; padding: 10px; border-radius: 9px; font: inherit; font-weight: 600; color: var(--ink-2); cursor: pointer; }

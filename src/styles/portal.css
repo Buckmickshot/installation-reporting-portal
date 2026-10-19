@@ -1,23 +1,25 @@
 /* Shared look for the portal pages (dashboard, job overview, field capture). */
 :root {
-  --navy: #1e2f40;
-  --navy-2: #2c3e50;
-  --accent: #2f8fd8;
-  --accent-ink: #1f6fa8;
-  --bg: #f4f6f8;
+  --navy: #0F2233;
+  --navy-2: #1B3247;
+  --accent: #1F6BC0;
+  --accent-ink: #1A5FAE;
+  --bg: #F4F6F8;
   --surface: #ffffff;
-  --ink: #1d2733;
-  --ink-2: #5b6878;
-  --line: #e2e7ec;
-  --good: #1e8a5a;   --good-bg: #e3f5ec;
-  --warn: #a8640b;   --warn-bg: #fdf1dc;
-  --info: #1f6fa8;   --info-bg: #e3f0fa;
-  --danger: #b4322b; --danger-bg: #fbe7e5;
-  --muted: #7a8694;  --muted-bg: #eef1f4;
+  --ink: #13202D;
+  --ink-2: #4C5A69;
+  --line: #DCE3EA;
+  --good: #18744C;   --good-bg: #E2F3EA;
+  --warn: #8F5507;   --warn-bg: #FCEFD7;
+  --info: #1A5FAE;   --info-bg: #E5EFFB;
+  --danger: #B02E27; --danger-bg: #FBE6E4;
+  --muted: #5B6773;  --muted-bg: #EDF0F3;
   --radius: 8px;
 }
 
-.portal { min-height: 100vh; background: var(--bg); color: var(--ink); }
+.portal { min-height: 100vh; background: var(--bg); color: var(--ink); font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.portal .mono, .portal code { font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; }
+.portal :focus-visible { outline: 3px solid #2E86E8; outline-offset: 2px; }
 .portal * { box-sizing: border-box; }
 
 /* header */

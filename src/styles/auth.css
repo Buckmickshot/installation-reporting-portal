@@ -1,15 +1,15 @@
 /* Sign-in, forgot-password and reset-password screens */
 .auth, .auth-like {
-  --a-navy: #1e2f40;
+  --a-navy: #0F2233;
   --a-navy-2: #2c3e50;
-  --a-accent: #2f8fd8;
-  --a-accent-ink: #1f6fa8;
-  --a-ink: #17212c;
-  --a-ink-2: #5b6878;
-  --a-line: #d9e0e7;
-  --a-bg: #f5f7fa;
-  --a-danger: #b4322b;
-  --a-good: #1e8a5a;
+  --a-accent: #1F6BC0;
+  --a-accent-ink: #1A5FAE;
+  --a-ink: #13202D;
+  --a-ink-2: #4C5A69;
+  --a-line: #BFCAD5;
+  --a-bg: #F4F6F8;
+  --a-danger: #B02E27;
+  --a-good: #18744C;
 }
 .auth {
   display: grid;
@@ -17,7 +17,7 @@
   min-height: 100vh;
   background: var(--a-bg);
   color: var(--a-ink);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 .auth *, .auth-like * { box-sizing: border-box; }
 

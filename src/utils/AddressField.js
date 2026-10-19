@@ -117,11 +117,6 @@ export default function AddressField({ label, value, onChange, section, verified
           Please select a valid address from the suggestions.
         </p>
       )}
-      {!lookupEnabled && verified !== undefined && (
-        <p style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-          Address lookup is off (no Geoscape key) — type the full address.
-        </p>
-      )}
 
       {open && suggestions.length > 0 && (
         <ul className="address-suggestions">

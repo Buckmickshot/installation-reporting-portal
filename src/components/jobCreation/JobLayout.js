@@ -1,7 +1,7 @@
 // src/components/jobCreation/JobLayout.js
 import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet, useNavigate, useSearchParams } from 'react-router-dom';
-import TopBarNavigator from './TopBarNavigator';
+import WizardShell from './WizardShell';
 import { useFormData } from '../../contexts/FormDataContext';
 import { useAuth } from '../../contexts/AuthProvider';
 import { LoadInstallation } from '../homeScreen/LoadInstallation';
@@ -44,11 +44,8 @@ export default function JobLayout() {
   }
 
   return (
-    <>
-      <TopBarNavigator />
-      <div className="job-layout-container">
-        <Outlet />
-      </div>
-    </>
+    <WizardShell>
+      <Outlet />
+    </WizardShell>
   );
 }
