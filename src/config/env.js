@@ -23,3 +23,9 @@ if (missing.length > 0 && env.appEnv !== 'test') {
         `Missing required environment variables: ${missing.join(', ')}. Add them to your .env file.`
     );
 }
+
+/** Absolute URL inside this app, respecting the hosting sub-path (e.g. GitHub Pages). */
+export function appUrl(path = '/') {
+  const base = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+  return `${window.location.origin}${base}${path.startsWith('/') ? path : `/${path}`}`;
+}

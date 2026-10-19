@@ -22,13 +22,14 @@ import AuthCallback from './components/Authentication/AuthCallback';
 import ResetPassword from './components/Authentication/ResetPassword';
 import JobOverview from './components/jobs/JobOverview';
 import FieldCapture from './components/jobs/FieldCapture';
+import SecurityPage from './components/security/SecurityPage';
 
 export default function App() {
   return (
     <AuthProvider>
       <FormDataProvider>
         <SearchProvider>
-          <BrowserRouter>
+          <BrowserRouter basename={process.env.PUBLIC_URL || undefined}>
             <Routes>
 
               {/* public routes */}
@@ -43,6 +44,7 @@ export default function App() {
                 <Route path="/choose-installation-type" element={<InstallationTypeScreen />} />
                 <Route path="/jobs/:id" element={<JobOverview />} />
                 <Route path="/jobs/:id/field" element={<FieldCapture />} />
+                <Route path="/security" element={<SecurityPage />} />
 
                 <Route path="/create-job/:workType/:premiseType?" element={<JobLayout />}>
                   <Route index               element={<Navigate to="customer" replace />} />

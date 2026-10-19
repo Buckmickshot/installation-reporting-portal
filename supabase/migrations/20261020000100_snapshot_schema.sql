@@ -595,9 +595,18 @@ revoke delete on snapshot.companies, snapshot.company_versions from authenticate
 insert into storage.buckets (id, name, public) values ('uploads', 'uploads', true)
   on conflict (id) do nothing;
 
-create policy "staff can read uploads" on storage.objects for select to authenticated
-  using (bucket_id = 'uploads');
-create policy "active staff can upload" on storage.objects for insert to authenticated
-  with check (bucket_id = 'uploads' and snapshot.current_company_id() is not null);
-create policy "active staff can overwrite" on storage.objects for update to authenticated
-  using (bucket_id = 'uploads' and snapshot.current_company_id() is not null);
+do $$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and policyname = 'staff can read uploads') then
+    create policy "staff can read uploads" on storage.objects for select to authenticated
+      using (bucket_id = 'uploads');
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and policyname = 'active staff can upload') then
+    create policy "active staff can upload" on storage.objects for insert to authenticated
+      with check (bucket_id = 'uploads' and snapshot.current_company_id() is not null);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and policyname = 'active staff can overwrite') then
+    create policy "active staff can overwrite" on storage.objects for update to authenticated
+      using (bucket_id = 'uploads' and snapshot.current_company_id() is not null);
+  end if;
+end $$;

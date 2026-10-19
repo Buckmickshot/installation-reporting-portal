@@ -10,6 +10,7 @@ import AppHeader from '../layout/AppHeader';
 import EvidencePanel from './EvidencePanel';
 import { readinessChecklist } from '../../utils/readiness';
 import { STATUS_BY_VALUE, statusLabel, availableActions, isEditable, formatDate } from '../../utils/jobStatus';
+import { buildAssignmentFormPdf, downloadBytes } from '../../forms/assignmentFormPdf';
 import '../../styles/portal.css';
 
 export function useJob(id) {
@@ -73,6 +74,7 @@ export default function JobOverview() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [team, setTeam] = useState([]);
+  const [exporting, setExporting] = useState(false);
 
   const isAdmin = !!(profile?.is_global_admin || (profile?.is_admin && job && profile.company_id === job.company_id));
   const checklist = useMemo(() => readinessChecklist(formData, evidence), [formData, evidence]);
@@ -101,6 +103,19 @@ export default function JobOverview() {
     return <div className="portal"><AppHeader /><main className="page"><p className="empty">Loading job…</p></main></div>;
   }
 
+  const exportPdf = async (jobRow = job) => {
+    setExporting(true);
+    try {
+      const bytes = await buildAssignmentFormPdf({ job: jobRow, formData, evidence });
+      downloadBytes(bytes, `${jobRow.job_ref}-VEEC-assignment-form.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert('Could not create the PDF: ' + e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const runAction = async (action, msg) => {
     setBusy(true);
     const { error: err } = await supabase.rpc('fn_set_job_status', { _installation: id, _status: action.to, _message: msg || null });
@@ -109,6 +124,7 @@ export default function JobOverview() {
     setPending(null);
     setMessage('');
     await Promise.all([loadJob(), loadEvents()]);
+    if (action.to === 'submitted') exportPdf({ ...job, status: 'submitted' });
   };
 
   const onAction = action => {
@@ -124,6 +140,15 @@ export default function JobOverview() {
       return;
     }
     runAction(action);
+  };
+
+  const revert = async () => {
+    if (!window.confirm('Undo the last status change on this job? This is recorded in the audit trail.')) return;
+    setBusy(true);
+    const { error: err } = await supabase.rpc('fn_revert_job_status', { _installation: id, _message: null });
+    setBusy(false);
+    if (err) return alert(err.message);
+    await Promise.all([loadJob(), loadEvents()]);
   };
 
   const assign = async userId => {
@@ -161,6 +186,7 @@ export default function JobOverview() {
           <h1 className="mono" style={{ fontSize: '1.3rem' }}>{job.job_ref}</h1>
           <span className={`pill ${tone}`}>{statusLabel(job.status)}</span>
           <div className="actions">
+            <button className="btn" onClick={() => exportPdf()} disabled={exporting}>{exporting ? 'Creating PDF…' : '📄 Export assignment form'}</button>
             <Link className="btn" to={`/jobs/${id}/field`}>📱 Field mode</Link>
             <Link className="btn" to={wizardPath(job)}>{editable ? 'Edit job form' : 'View job form'}</Link>
             {['draft', 'cancelled'].includes(job.status) && (isAdmin || job.user_id === user.id) && (
@@ -228,6 +254,12 @@ export default function JobOverview() {
                   </button>
                 ))}
               </div>
+              {isAdmin && job.status !== 'draft' && events.some(e => e.event_type === 'status_change') && (
+                <div className="demo-note">
+                  <button className="btn small" disabled={busy} onClick={revert}>↩ Revert last status change</button>
+                  <div style={{ marginTop: 4 }}>Admins only · for corrections and demos · logged in the activity trail.</div>
+                </div>
+              )}
               {pending && (
                 <div style={{ marginTop: 12 }}>
                   <textarea className="input" rows={3} autoFocus

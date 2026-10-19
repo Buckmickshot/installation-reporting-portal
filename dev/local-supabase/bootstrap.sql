@@ -39,3 +39,10 @@ create or replace function storage.foldername(name text) returns text[]
 grant usage on schema storage to anon, authenticated, service_role;
 grant all on storage.objects, storage.buckets to authenticated, service_role;
 grant select on storage.objects, storage.buckets to anon;
+
+-- Minimal stand-in for Supabase Vault (the real one encrypts secrets with a root key)
+create schema if not exists vault;
+create table if not exists vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, secret text, description text);
+create or replace view vault.decrypted_secrets as select id, name, secret as decrypted_secret, description from vault.secrets;
+create or replace function vault.create_secret(new_secret text, new_name text default null, new_description text default '')
+returns uuid language sql as $$ insert into vault.secrets(name, secret, description) values (new_name, new_secret, new_description) returning id $$;

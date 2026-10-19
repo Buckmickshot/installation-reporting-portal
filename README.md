@@ -2,6 +2,34 @@
 
 Staff portal for Victorian Energy Upgrades (VEU) installers. It covers Activity 6 (high-efficiency air-conditioners): capturing the customer, premises, building-age evidence, prior installations, decommissioned and new products, tradespeople, field photos and signatures. It then moves each job through review to VEEC submission and payment.
 
+## Live demo
+
+**https://buckmickshot.github.io/installation-reporting-portal/**  (deployed automatically from `main` by GitHub Actions)
+
+Demo accounts (fictional, password `VeuDemo#2026`):
+
+| Email | Role | Company |
+| --- | --- | --- |
+| `olivia.chen@example.com` | Company admin (reviewer) | Northside Climate Solutions |
+| `jack.taylor@example.com` | Staff / installer | Northside Climate Solutions |
+| `priya.nair@example.com` | Company admin | Bayside Air Co. (separate company – shows data isolation) |
+
+The showcase job **Alex Morgan – 17 Banksia Street** is complete and waiting for review: open it, *Export assignment form*,
+*Mark as submitted* (the PDF downloads automatically), then *↩ Revert last status change* to run the demo again.
+Global admins also get **↺ Reset demo data** on the dashboard.
+
+## Security
+
+| Control | How |
+| --- | --- |
+| Row-level security | Every `snapshot` table; per-company isolation and role checks run inside Postgres |
+| Encryption at rest | Customer phone/email stored as AES-256 (pgcrypto) ciphertext; key held in Supabase Vault |
+| Two-factor auth | TOTP authenticator apps (Security page); once enrolled the **database** returns no data until the session is AAL2 |
+| Email verification | Accounts must confirm email; passwordless one-time email codes on the sign-in page |
+| Passwords | bcrypt hashes (Supabase Auth) |
+| Audit trail | Status changes, allocations, evidence and notes recorded automatically |
+| Transport | HTTPS/TLS everywhere |
+
 ## Features
 
 | Area | What it does |

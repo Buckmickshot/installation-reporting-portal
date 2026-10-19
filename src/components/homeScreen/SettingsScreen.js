@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthProvider';
 import { supabase, createEphemeralClient } from '../../relationship/supabaseConfig';
+import { appUrl } from '../../config/env';
 import { FaPencilAlt } from 'react-icons/fa';
 import './SettingsScreen.css';
 import AppHeader from '../layout/AppHeader';
@@ -103,7 +104,7 @@ export default function SettingsScreen() {
   const handleResend = async email => {
     const { error } = await supabase.auth.resend(
       { type: 'signup', email },
-      { redirectTo: `${window.location.origin}/auth/callback` },
+      { redirectTo: appUrl('/auth/callback') },
     );
     if (error) alert(`Error: ${error.message}`)
       else alert(`Confirmation email resent to ${email}`)
@@ -154,7 +155,7 @@ export default function SettingsScreen() {
           is_admin:       newUser.is_admin,
           is_global_admin:newUser.is_global_admin,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: appUrl('/auth/callback'),
       },
     });
     if (error || !data?.user)
@@ -200,7 +201,7 @@ export default function SettingsScreen() {
     if (!email) return alert("No email found for this user");
   
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback`,  // 🔑
+      redirectTo: appUrl('/auth/callback'),  // 🔑
     });
     if (error) return alert("Error sending reset email: " + error.message);
   

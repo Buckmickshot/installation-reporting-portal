@@ -152,3 +152,18 @@ table.jobs tr.row:hover td { background: #f8fafc; }
 .field-shot:last-child { border-bottom: 0; }
 .field-shot .name { font-size: .92rem; }
 .field-shot .count { font-size: .75rem; color: var(--good); font-weight: 600; }
+
+/* login segmented control + misc */
+.seg { display: flex; background: var(--muted-bg); border-radius: 8px; padding: 3px; margin: 0 0 16px; }
+.seg button { flex: 1; border: 0; background: transparent; padding: .45rem; border-radius: 6px; font: inherit; font-size: .85rem; cursor: pointer; color: var(--ink-2); }
+.seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 600; }
+.lock-badge { font-size: 1.8rem; margin-bottom: 6px; }
+.banner.good { background: var(--good-bg); color: var(--good); }
+.steps { padding-left: 1.2rem; margin: 8px 0; font-size: .9rem; }
+.sec-facts { display: flex; flex-direction: column; gap: 14px; }
+.sec-fact { display: flex; gap: 12px; align-items: flex-start; font-size: .9rem; }
+.sec-icon { width: 34px; height: 34px; flex: none; border-radius: 8px; background: var(--muted-bg); display: flex; align-items: center; justify-content: center; }
+.cipher { background: #0f1720; color: #9fe2b8; border-radius: 6px; padding: 10px 12px; margin-left: 46px; }
+.cipher .sub { color: #9aa7b4; margin-bottom: 4px; }
+.cipher code { font-size: .78rem; word-break: break-all; }
+.demo-note { border: 1px dashed #c5ced8; border-radius: 6px; padding: 8px 10px; font-size: .8rem; color: var(--ink-2); margin-top: 10px; }

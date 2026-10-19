@@ -8,6 +8,7 @@ import { safeQuery } from '../Authentication/SafeQuery';
 import AppHeader from '../layout/AppHeader';
 import { STATUSES, STATUS_BY_VALUE, statusLabel, formatDate } from '../../utils/jobStatus';
 import { toCsv, downloadCsv } from '../../utils/csv';
+import { appUrl } from '../../config/env';
 import '../../styles/portal.css';
 
 const OPEN_STATUSES = ['draft', 'rfi', 'ready_for_review', 'submitted', 'approved'];
@@ -92,6 +93,13 @@ export default function HomeScreen() {
     navigate('/choose-installation-type');
   };
 
+  const resetDemo = async () => {
+    if (!window.confirm('Reset the demo jobs (Northside & Bayside) to their starting state? Other jobs are not touched.')) return;
+    const { error } = await supabase.rpc('fn_reset_demo', { _asset_base: appUrl('/').replace(/\/$/, '') });
+    if (error) return alert(error.message);
+    load();
+  };
+
   const exportCsv = () => {
     const csv = toCsv(visible, [
       { key: 'job_ref', label: 'Job ref' },
@@ -140,6 +148,7 @@ export default function HomeScreen() {
                 ))}
               </select>
             )}
+            {isGlobal && <button className="btn" onClick={resetDemo} title="Restore the showcase jobs">↺ Reset demo data</button>}
             <button className="btn" onClick={exportCsv} disabled={!visible.length}>Export CSV</button>
             <button className="btn primary" onClick={startJob} disabled={isGlobal && !newJobCompany}>+ New job</button>
           </div>
