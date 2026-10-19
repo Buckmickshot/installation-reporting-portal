@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthProvider';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../relationship/supabaseConfig';
+import { supabase, createEphemeralClient } from '../../relationship/supabaseConfig';
 import { FaPencilAlt } from 'react-icons/fa';
 import './SettingsScreen.css';
+import AppHeader from '../layout/AppHeader';
+import '../../styles/portal.css';
 
 export default function SettingsScreen() {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [profile, setProfile] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -66,7 +66,7 @@ export default function SettingsScreen() {
     }));
   
     setEditingUser(null);
-    fetchUsersForCompany(companyId);    // refresh list
+    fetchUsersForCompany(companyId, true);    // refresh list
   };
   
   const fetchCompanies = async () => {
@@ -91,8 +91,8 @@ export default function SettingsScreen() {
     fetchInitialData();
   }, [user]);
 
-  const fetchUsersForCompany = async (companyId) => {
-    if (companyUsers[companyId]) return;
+  const fetchUsersForCompany = async (companyId, force = false) => {
+    if (companyUsers[companyId] && !force) return;
     const { data, error } = await supabase
       .from('profiles')
       .select('user_id, name, email, phone, active, is_admin, is_global_admin, confirmed')
@@ -124,12 +124,13 @@ export default function SettingsScreen() {
       .from('profiles')
       .update({ active: !currentStatus })
       .eq('user_id', userId);
-    if (!error) fetchUsersForCompany(companyId);
+    if (!error) fetchUsersForCompany(companyId, true);
+    else alert(error.message);
   };
 
   const handleCreateCompany = async () => {
     if (!newCompany.name || !newCompany.address) return alert("Fill in all fields");
-    const { data, error } = await supabase.rpc('create_new_company', {
+    const { error } = await supabase.rpc('create_new_company', {
       input_name: newCompany.name,
       input_address: newCompany.address,
     });
@@ -142,7 +143,8 @@ export default function SettingsScreen() {
     if (!newUser.email || !newUser.password || !newUser.name || !newUser.phone)
       return alert('Fill in all fields');
   
-    const { data, error } = await supabase.auth.signUp({
+    // use a session-less client so the admin stays logged in
+    const { data, error } = await createEphemeralClient().auth.signUp({
       email: newUser.email,
       password: newUser.password,
       // ⬇️ keep ONLY what you need for JWT / RLS
@@ -176,15 +178,17 @@ export default function SettingsScreen() {
     if (upsertError)
       return alert("Profile creation failed: " + upsertError.message);
   
-    alert("User invited. They must confirm their email before activation.");
-    fetchUsersForCompany(companyId);
+    alert(data.session
+      ? 'User created. They can log in now.'
+      : 'User invited. They must confirm their email before activation.');
+    fetchUsersForCompany(companyId, true);
     setNewUser({ name: '', phone: '', email: '', password: '', is_admin: false, is_global_admin: false });
     setModalState({ companyId: null, mode: null, previousVersionId: null });
   };
 
   const handleUpdateCompany = async () => {
     if (!editCompany.name || !editCompany.address) return alert("Fill in all fields");
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('company_versions')
       .insert([{ company_id: modalState.companyId, name: editCompany.name, address: editCompany.address, previous_version_id: modalState.previousVersionId }]);
     if (error) return alert("Error updating company: " + error.message);
@@ -203,16 +207,13 @@ export default function SettingsScreen() {
     alert("Password reset email sent to " + email);
   };
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/login', { replace: true });
-  };
 
   return (
+    <div className="portal">
+    <AppHeader />
     <div className="settings-screen">
       <div className="settings-header">
-        <button className="back-button" onClick={() => navigate('/')}>←</button>
-        <h1>Settings</h1>
+        <h1>{isGlobalAdmin || isCompanyAdmin ? 'Team & companies' : 'My account'}</h1>
       </div>
 
       {isGlobalAdmin && (
@@ -239,7 +240,10 @@ export default function SettingsScreen() {
               </div>
               <div className="company-actions">
                 {(isGlobalAdmin || isCompanyAdmin) && (
-                  <button onClick={() => { setModalState({ companyId: c.company_id, mode: null, previousVersionId: c.company_version_id }); setEditCompany({ name: c.name, address: c.address }); }}><FaPencilAlt /></button>
+                  <>
+                    <button onClick={() => setModalState({ companyId: c.company_id, mode: 'user', previousVersionId: c.company_version_id })}>+ Add user</button>
+                    <button title="Edit company" onClick={() => { setModalState({ companyId: c.company_id, mode: 'edit', previousVersionId: c.company_version_id }); setEditCompany({ name: c.name, address: c.address }); }}><FaPencilAlt /></button>
+                  </>
                 )}
                 {isGlobalAdmin && c.company_id !== profile.company_id && (
                   <button onClick={() => toggleCompanyActive(c.company_id, c.company_active)}>{c.company_active ? 'Deactivate' : 'Activate'}</button>
@@ -362,7 +366,7 @@ export default function SettingsScreen() {
         ))}
       </ul>
 
-      <button className="logout-button" onClick={handleLogout}>Log out</button>
+    </div>
     </div>
   );
 }

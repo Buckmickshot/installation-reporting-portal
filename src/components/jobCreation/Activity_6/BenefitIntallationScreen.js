@@ -1,46 +1,33 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../JobScreen.css';
 import Field from '../../../utils/Field';
 import RadioField from '../../../utils/RadioField';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import { useFormData } from '../../../contexts/FormDataContext';
 import CollapsibleSection from '../../../utils/CollapsibleSection';
-import {
-  getRemaining,
-  validateInstallationLimits
-} from '../../../utils/InstallationLimits';
+import { validateInstallationLimits } from '../../../utils/InstallationLimits';
 import { useNavigate } from 'react-router-dom';
 import { FaTrash } from 'react-icons/fa';
 import RightSideBar from '../RightSideBar';
 import { sectionsConfig } from '../../../utils/SectionsConfig';
 import { useSearch } from '../../../contexts/SearchContext';
-import RoomEditor, { RoomSelector, SizingSummary } from '../../../utils/RoomConfig'
+import RoomEditor, { RoomSelector } from '../../../utils/RoomConfig'
 import { getMinCoPayment } from '../../../utils/MinCopayment';
 import { INSTALLATION_REQUIREMENTS } from '../../constants/InstallProducts';
 
 export default function BenefitInstallationScreen() {
   const navigate = useNavigate();
   const { formData, updateFormData, resetFormData } = useFormData();
-  const caps = useMemo(() => getRemaining(formData), [formData]);
   const installedProducts = formData.installedProducts || [];
   const activityCfg = sectionsConfig['Activity 6 Registry'];
   const { setEntity, setFilters } = useSearch();
   const [activeProduct, setActiveProduct] = useState(null);
 
-  const handleChange = (key, value) => {
-    updateFormData({ [key]: value });
-  
-    // if it’s one of your registry fields, search for it
-    const dbCol = activityCfg.fields[key];
-    if (dbCol) {
-      setEntity(activityCfg.table);
-      setFilters({ [dbCol]: value });
-    }
-  };
 
   useEffect(() => {
     const errs = validateInstallationLimits(formData);
     updateFormData({ installationLimitError: errs });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the listed fields change
   }, [
     formData.premisesType,
     formData.ductedCount,
@@ -255,7 +242,6 @@ export default function BenefitInstallationScreen() {
         {(installedProducts || []).map((product, index) => {
           if (index !== activeProduct) return null;
 
-          const isDucted       = product.productType === 'Ducted';
           const isSingleSplit  = product.unitConfiguration === 'Single split system';
           const isMultiSplit   = product.unitConfiguration !== 'Single split system' && product.unitConfiguration !== '';
 

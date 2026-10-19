@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import '../JobScreen.css';
 import Field from '../../../utils/Field';
 import AddressField from '../../../utils/AddressField';
@@ -19,15 +19,15 @@ function DeclarationScreen() {
     };
   
     const isClientSectionInvalid = isSectionInvalid(formData, [
-      'title', 'firstName', 'surname', 'clientPhone', 'email',
+      'firstName', 'surname', 'clientPhone', 'email',
     ]);
   
     const isLicensedPlumberSectionInvalid = isSectionInvalid(formData, [
-      'licensedPlumberName',
-      'licensedPlumberCompanyName',
-      'licensedPlumberCompanyAddress',
-      'licensedPlumberPhone',
-      'licensedPlumberLicenseNo',
+      'licencedPlumberName',
+      'licencedPlumberCompanyName',
+      'licencedPlumberCompanyAddress',
+      'licencedPlumberPhone',
+      'licencedPlumberLicenseNo',
       ...(formData.VBARequired === true ? ['VBAComplianceCertificateNo'] : []),
     ]);
   
@@ -78,11 +78,11 @@ function DeclarationScreen() {
             Licensed Plumber Details
             <span className={`asterisk ${isLicensedPlumberSectionInvalid ? 'visible' : ''}`}>*</span>
           </h2>
-          <Field label="Name" value={formData.licensedPlumberName} onChange={(v) => handleChange('licensedPlumberName', v)} />
-          <Field label="Company Name" value={formData.licensedPlumberCompanyName} onChange={(v) => handleChange('licensedPlumberCompanyName', v)} />
-          <AddressField label="Company Address" value={formData.licensedPlumberCompanyAddress} onChange={(val) => updateFormData({ licensedPlumberCompanyAddress: val })} />
-          <Field label="Phone" value={formData.licensedPlumberPhone} onChange={(v) => handleChange('licensedPlumberPhone', v)} />
-          <Field label="License No" value={formData.licensedPlumberLicenseNo} onChange={(v) => handleChange('licensedPlumberLicenseNo', v)} />
+          <Field label="Name" value={formData.licencedPlumberName} onChange={(v) => handleChange('licencedPlumberName', v)} />
+          <Field label="Company Name" value={formData.licencedPlumberCompanyName} onChange={(v) => handleChange('licencedPlumberCompanyName', v)} />
+          <AddressField label="Company Address" value={formData.licencedPlumberCompanyAddress} onChange={(val) => updateFormData({ licencedPlumberCompanyAddress: val })} />
+          <Field label="Phone" value={formData.licencedPlumberPhone} onChange={(v) => handleChange('licencedPlumberPhone', v)} />
+          <Field label="License No" value={formData.licencedPlumberLicenseNo} onChange={(v) => handleChange('licencedPlumberLicenseNo', v)} />
           <Field label="VBA Compliance Certificate No" value={formData.VBAComplianceCertificateNo} onChange={(v) => handleChange('VBAComplianceCertificateNo', v)} />
 
           <h2 className="section-header">
@@ -120,7 +120,7 @@ function DeclarationScreen() {
             Accredited Person
             <span className={`asterisk ${isAccreditedSectionInvalid ? 'visible' : ''}`}>*</span>
           </h2>
-          <Field label="Accreditted Person (if applicable)" value={formData.accredittedPerson} onChange={(v) => handleChange('accredittedPerson', v)} />
+          <Field label="Accredited Person (if applicable)" value={formData.accredittedPerson} onChange={(v) => handleChange('accredittedPerson', v)} />
         </div>
       </div>
     );

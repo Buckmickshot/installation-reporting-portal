@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState } from 'react'
 import CollapsibleSection from './CollapsibleSection'
 import EvidenceField from './EvidenceField'
 import { useFormData } from '../contexts/FormDataContext'
@@ -290,14 +290,6 @@ export default function DecommissionWorkflow({ productIndex }) {
     updateFormData({ decommissionSteps: copy })
   }
 
-  const handleSubFiles = (stageKey, subKey, value) => {
-    const copy = { ...allSteps }
-    const step = { ...(copy[productIndex] || {}) }
-    const prev = step[stageKey]?.evidence || {}
-    step[stageKey] = { ...step[stageKey], evidence: { ...prev, [subKey]: value } }
-    copy[productIndex] = step
-    updateFormData({ decommissionSteps: copy })
-  }
 
     const refr    = stepsForThis.refrigerant?.answer
     const safeAns = stepsForThis.safeRemoval?.answer

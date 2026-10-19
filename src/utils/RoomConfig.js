@@ -85,6 +85,7 @@ useEffect(() => {
     );
     updateFormData({ installedProducts: updated });
   }
+// eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the listed fields change
 }, [rooms]);
 
 
@@ -192,6 +193,7 @@ export function SizingSummary({ product, index }) {
       };
       updateFormData({ installedProducts: updated });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the listed fields change
   }, [pass]);
 
   return (

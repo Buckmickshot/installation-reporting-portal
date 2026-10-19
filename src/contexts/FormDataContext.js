@@ -7,6 +7,11 @@ const FormDataContext = createContext();
 const defaultFormData = {
   installationId: null,
   companyId: null,
+  premisesId: null,
+  consumerId: null,
+  status: null,
+  jobRef: null,
+  installationDate: '',
   invalidFields: {},
   createdAt: null,
   updatedAt: null,
@@ -82,94 +87,6 @@ const defaultFormData = {
       coPayment: '',
     }
   ],
-
-  // installationLimitError: null,
-
-  // typeOfBenefit: null,
-  // otherBenefit: '',
-  // amountOfBenefit: null,
-  // invoice: [],
-  // consumerPayment: null,
-
-  // // Licensed Plumber Details
-  // licencedPlumberName: '',
-  // licencedPlumberCompanyName: '',
-  // licencedPlumberCompanyAddress: '',
-  // licencedPlumberPhone: '',
-  // licencedPlumberLicenseNo: '',
-
-  // // Registered Plumber Details
-  // registeredPlumberName: '',
-  // registeredPlumberCompanyName: '',
-  // registeredPlumberCompanyAddress: '',
-  // registeredPlumberPhone: '',
-  // registeredPlumberRegistrationNo: '',
-
-  // // Electrician Details
-  // electricianName: '',
-  // electricianCompanyName: '',
-  // electricianCompanyAddress: '',
-  // electricianPhone: '',
-  // electricianLicenseNo: '',
-
-  // // Refrigerant Handling Details
-  // refrigerantHandlerName: '',
-  // refrigerantHandlerCompanyName: '',
-  // refrigerantHandlerCompanyAddress: '',
-  // refrigerantHandlerPhone: '',
-  // refrigerantHandlerLicenseNo: '',
-
-
-
-
-
-
-
-  // VBAComplianceCertificateNo: '',
-  // COESNo: '',
-
-  // installationDate: '',
-
-  // warrantyConfirmed: null,
-
-  // // Multi Split
-  // multiSplitHeatingCapacity: null,
-  // multiSplitCoolingCapacity: null,
-  // indoorUnitsSameManufacturer: '',
-
-  // // Decommissioning Details
-  // decommissionMethod: '',
-  // removed: null,
-  // notRemovedReason: '',
-  // ductReplacement: '',
-
-  // // Repair Work Details
-  // remove_for_disposal: null,
-  // decommission_and_leave: null,
-  // complete_all_repair_work: null,
-  // complete_some_repair_work: null,
-  // no_repair_work: null,
-  // partial_repair_details: '',
-
-  // // Certificates and Signature
-  // receivedVBACert: null,
-  // receivedCESCert: null,
-  // VBAInformed: null,
-  // VEUFactSheet: null,
-  // sizeRecommended: null,
-
-  // section2BSignature: '',
-  // section2BDate: '',
-  // section2BDateFormatted: '',
-  // section3ASignature:'',
-  // section3ADate: '',
-  // section3ADateFormatted: '',
-  // section3BSignature: '',
-  // section3BDate: '',
-  // section3BDateFormatted: '',
-  // section4BSignature: '',
-  // section4BDate: '',
-  // section4BDateFormatted: '',
 };
 
 export const FormDataProvider = ({ children }) => {

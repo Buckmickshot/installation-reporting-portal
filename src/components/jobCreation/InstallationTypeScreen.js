@@ -53,12 +53,19 @@ export default function InstallationTypeScreen() {
       return
     }
   
-    // row.installation_id and row.premises_id are now set
+    const { data: created } = await supabase
+      .from('installation')
+      .select('job_number, status')
+      .eq('installation_id', row.installation_id)
+      .single()
+
     updateFormData({
       installationId: row.installation_id,
       premisesId:     row.premises_id,
       activityType:   selected,
-      premisesType:   variant
+      premisesType:   variant,
+      status:         created?.status || 'draft',
+      jobRef:         created ? `VEU-${String(created.job_number).padStart(6, '0')}` : null,
     })
   
     // 2️⃣ Move on to the next screen

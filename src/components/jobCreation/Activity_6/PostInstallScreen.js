@@ -1,16 +1,14 @@
 // src/components/jobCreation/Activity_6/DecommissionScreen.js
-import React, { useState } from 'react';
+import React from 'react';
 import '../JobScreen.css';
 import Field from '../../../utils/Field';
 import RadioField from '../../../utils/RadioField';
 import CollapsibleSection from '../../../utils/CollapsibleSection';
 import { useFormData } from '../../../contexts/FormDataContext';
 import LeftSideBar from '../LeftSideBar';
-import { getScenarios } from '../../constants/Decommissioning';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
-const DECOMMISSION_DEC_ERROR = "Since you have not followed the decommission and disposal requirements, the VEEC application will not be approved"
 const INFORMATION_DEC_ERROR = "You have not provide necessary information or documents to the consumers, the VEEC application will not be approved"
 
 
@@ -29,10 +27,6 @@ export default function DecommissionScreen() {
     hasAffectedProduct
 
     // 1) Build scenario list based on isResidential
-    const scenarios = React.useMemo(
-        () => getScenarios(formData.isResidential),
-        [formData.isResidential]
-    );
     
     const VEU_Code_Conduct = 'https://www.esc.vic.gov.au/victorian-energy-upgrades/participating-veu-program/meeting-your-obligations-under-veu-code-conduct';
 
@@ -46,52 +40,11 @@ export default function DecommissionScreen() {
     // Do we show the Certificates panel at all?
     const needsCertificates = coesList.length > 0 || vbaList.length > 0;
 
-    // 2) Indices of products requiring COES or VBA
-    const coesIndices = formData.decommissionedProducts
-        .map((p, i) => (p.COESRequired ? i : null))
-        .filter((i) => i != null);
-    const vbaIndices = formData.decommissionedProducts
-        .map((p, i) => (p.VBARequired ? i : null))
-        .filter((i) => i != null);
 
-    // 3) Validation flags
-    const disposalInvalid = [
-        'decommissionMethod',
-        'removed',
-        ...(formData.removed === false ? ['notRemovedReason'] : []),
-        'ductReplacement',
-    ].some((key) => {
-        const v = formData[key];
-        return v === '' || v == null;
-    });
 
-    const coesSectionInvalid =
-        coesIndices.length > 0 &&
-        (!formData.coesCertificateNumber ||
-        !Array.isArray(formData.coesAppliedProducts) ||
-        formData.coesAppliedProducts.length === 0);
 
-    const vbaSectionInvalid =
-        vbaIndices.length > 0 &&
-        (!formData.vbaCertificateNumber ||
-        !Array.isArray(formData.vbaAppliedProducts) ||
-        formData.vbaAppliedProducts.length === 0);
 
-    // 4) Toggle a checkbox in an array field
-    const toggleCheckbox = (fieldKey, idx) => {
-        const arr = Array.isArray(formData[fieldKey]) ? formData[fieldKey] : [];
-        if (arr.includes(idx)) {
-        updateFormData({ [fieldKey]: arr.filter((i) => i !== idx) });
-        } else {
-        updateFormData({ [fieldKey]: [...arr, idx] });
-        }
-    };
 
-    const handleFilesSelected = (filesArray) => {
-        updateFormData({
-          invoice: filesArray,
-        });
-      };
       
       const handleChange = (key, value) => {
         updateFormData({ [key]: value });

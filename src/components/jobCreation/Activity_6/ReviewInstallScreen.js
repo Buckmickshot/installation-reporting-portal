@@ -9,27 +9,20 @@ import { useFormData } from '../../../contexts/FormDataContext'
 import FileUploadField from '../../../utils/FileUploadField'
 import Field from '../../../utils/Field';
 import RadioField from '../../../utils/RadioField';
-import DateField from '../../../utils/DateField'
+import { useAuth } from '../../../contexts/AuthProvider'
+import { save } from '../../../relationship/save'
 import Modal from '../../../utils/Modal'
 
 export default function ReviewInstallScreen() {
   const navigate = useNavigate()
   const { formData, updateFormData } = useFormData()
+  const { signOut } = useAuth()
   const isResidential = formData.premisesType === 'residential'
   const [notes, setNotes] = useState(formData.inspectorNotes || '')
   const [showSizingModal, setShowSizingModal] = useState(false)
-  const [hasInvoice, setHasInvoice] = useState((formData.invoice?.length ?? 0) > 0);
 
 
-  const handleCoPayChange = (idx, v) => {
-    const updated = [...formData.installedProducts]
-    updated[idx] = { ...updated[idx], coPayment: v }
-    updateFormData({ installedProducts: updated })
-  }
 
-  const hasErrors = formData.installedProducts.some(p =>
-    Number(p.coPayment) < p.minCoPayment
-  )
 
   const handleFilesSelected = (filesArray) => {
     updateFormData({
@@ -100,17 +93,30 @@ export default function ReviewInstallScreen() {
     }
   }
 
-  /** Save notes into formData context */
-  const handleSaveDraft = () => {
+  /** Save the whole job (including inspector notes) */
+  const persist = async () => {
+    const next = { ...formData, inspectorNotes: notes }
     updateFormData({ inspectorNotes: notes })
-    navigate('/jobs')
+    await save(next, signOut, updateFormData, navigate)
   }
 
-  /** Finalise job record (server/API) */
-  const handleGenerateRecord = () => {
-    updateFormData({ inspectorNotes: notes })
-    alert('Final record generation is not connected to a backend endpoint yet.')
-    navigate('/jobs/quote/preview')
+  const handleSaveDraft = async () => {
+    try {
+      await persist()
+      alert('Saved.')
+    } catch (err) {
+      alert(`Could not save: ${err.message}`)
+    }
+  }
+
+  /** Save, then go to the job overview to finish evidence and send for review */
+  const handleGenerateRecord = async () => {
+    try {
+      await persist()
+      navigate(`/jobs/${formData.installationId}`)
+    } catch (err) {
+      alert(`Could not save: ${err.message}`)
+    }
   }
 
   const sectionMap = useMemo(() => ({
@@ -380,6 +386,10 @@ export default function ReviewInstallScreen() {
             </a>{" "}
             before they agree to proceed with the installation.
           </p>
+          <div style={{ display: 'flex', gap: 8, margin: '0.5rem 0 1rem' }}>
+            <button type="button" onClick={handleDownloadFactSheet}>Download fact sheet</button>
+            <button type="button" onClick={handleShareFactSheet}>Share with customer</button>
+          </div>
 
           <p className="mb-2 text-sm text-gray-700">
             You must provide consumer (according to the {" "}

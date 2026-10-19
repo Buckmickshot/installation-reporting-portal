@@ -28,7 +28,7 @@ export async function upsertPremises({
       _other_fields:   otherFields,
       _reuse_existing: reuseExisting,
       _copy_building_docs:      copyDocs,
-    }). single()
+    }).single()
     ,{ signOut, navigate }
   )
 

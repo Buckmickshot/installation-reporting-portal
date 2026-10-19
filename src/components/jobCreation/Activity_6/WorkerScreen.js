@@ -13,7 +13,7 @@ export default function WorkerScreen() {
     const { setEntity, setFilters } = useSearch();
     const [activeSection, setActiveSection] = useState(null);
 
-    const { decommissionedProducts = [], installedProducts = [] } = formData;
+    const { decommissionedProducts = [] } = formData;
     const workerTasks = {
       plumber: [],
       electrician: [],

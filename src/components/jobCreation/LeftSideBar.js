@@ -11,28 +11,28 @@ const fieldNameMap = {
   'Installation Address': 'installationAddress',
   
   'Name': {
-    'Licensed Plumber Details': 'licensedPlumberName',
+    'Licensed Plumber Details': 'licencedPlumberName',
     'Registered Plumber Details': 'registeredPlumberName',
     'Electrician Details': 'electricianName',
     'Refrigerant Handler Details': 'refrigerantHandlerName',
   },
 
   'Company Name': {
-    'Licensed Plumber Details': 'licensedPlumberCompanyName',
+    'Licensed Plumber Details': 'licencedPlumberCompanyName',
     'Registered Plumber Details': 'registeredPlumberCompanyName',
     'Electrician Details': 'electricianCompanyName',
     'Refrigerant Handler Details': 'refrigerantHandlerCompanyName',
   },
 
   'Company Address': {
-    'Licensed Plumber Details': 'licensedPlumberCompanyAddress',
+    'Licensed Plumber Details': 'licencedPlumberCompanyAddress',
     'Registered Plumber Details': 'registeredPlumberCompanyAddress',
     'Electrician Details': 'electricianCompanyAddress',
     'Refrigerant Handler Details': 'refrigerantHandlerCompanyAddress',
   },
 
   'License No': {
-    'Licensed Plumber Details': 'licensedPlumberLicenseNo',
+    'Licensed Plumber Details': 'licencedPlumberLicenseNo',
     'Electrician Details': 'electricianLicenseNo',
     'Refrigerant Handler Details': 'refrigerantHandlerLicenseNo',
   },

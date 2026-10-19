@@ -1,113 +1,126 @@
-// src/components/TopBarNavigator.js
-import React, { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import './TopBarNavigator.css'
-import { FaHome, FaSave, FaTrash } from 'react-icons/fa'
-import { useFormData } from '../../contexts/FormDataContext'
-import { save } from '../../relationship/save'
-import { useAuth } from "../../contexts/AuthProvider"
-import ConfirmModal from './ConfirmModal'
+// src/components/jobCreation/TopBarNavigator.js
+import React, { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import './TopBarNavigator.css';
+import { FaHome, FaSave, FaTrash, FaClipboardCheck } from 'react-icons/fa';
+import { useFormData } from '../../contexts/FormDataContext';
+import { save } from '../../relationship/save';
+import { supabase } from '../../relationship/supabaseConfig';
+import { useAuth } from '../../contexts/AuthProvider';
+import { isEditable, statusLabel } from '../../utils/jobStatus';
+import ConfirmModal from './ConfirmModal';
+
+const TABS = [
+  { path: 'customer', label: 'Customer Info' },
+  { path: 'decommission', label: 'Decommission' },
+  { path: 'benefit', label: 'Benefit & Install' },
+  { path: 'worker', label: 'Workers' },
+  { path: 'review', label: 'Review Install' },
+  { path: 'postInstall', label: 'Post Install' },
+  { path: 'declaration', label: 'Declaration' },
+];
 
 export default function TopBarNavigator() {
-  const navigate = useNavigate()
-  const { signOut } = useAuth()
-  const { formData, resetFormData, updateFormData } = useFormData()
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const navigate = useNavigate();
+  const { signOut, profile } = useAuth();
+  const { formData, resetFormData, updateFormData } = useFormData();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const tabs = [
-    { path: 'customer',    label: 'Customer Info' },
-    { path: 'decommission',label: 'Decommission' },
-    { path: 'benefit',     label: 'Benefit & Install' },
-    { path: 'worker',      label: 'Workers' },
-    { path: 'review',      label: 'Review Install' },
-    { path: 'postInstall', label: 'Post Install' },
-    { path: 'declaration', label: 'Declaration' },
-  ];
+  const isAdmin = !!(profile?.is_global_admin || profile?.is_admin);
+  const status = formData.status || 'draft';
+  const canEdit = isEditable(status, isAdmin);
+  const canDelete = ['draft', 'cancelled'].includes(status);
 
-  const handleSave = async () => {
-    const { invalidFields } = formData;
-    const errorMessages = Object.entries(invalidFields)
-      .flatMap(([section, fields]) =>
-        Object.entries(fields)
-          .filter(([, msg]) => !!msg)
-          .map(([field, msg]) => `• ${section} → ${field}: ${msg}`)
-      );
-
+  const doSave = async () => {
+    const errorMessages = Object.entries(formData.invalidFields || {}).flatMap(([section, fields]) =>
+      Object.entries(fields)
+        .filter(([, msg]) => !!msg)
+        .map(([field, msg]) => `• ${section} → ${field}: ${msg}`)
+    );
     if (errorMessages.length > 0) {
       alert(`Please fix the following errors before saving:\n\n${errorMessages.join('\n')}`);
-      return;
+      return false;
     }
-
+    setSaving(true);
     try {
-      await save(formData, signOut, updateFormData, navigate)
-      alert('Data saved successfully.')
+      await save(formData, signOut, updateFormData, navigate);
+      return true;
     } catch (err) {
-      console.error('Save error:', err)
-      alert('Failed to save data. Please try again.')
+      console.error('Save error:', err);
+      alert(`Could not save: ${err.message}`);
+      return false;
+    } finally {
+      setSaving(false);
     }
-  }
+  };
 
-  const handleDelete = () => {
-    setShowDeleteModal(true)
-  }
+  const confirmDelete = async () => {
+    setShowDeleteModal(false);
+    if (formData.installationId) {
+      const { error } = await supabase.rpc('fn_delete_installation', { _installation: formData.installationId });
+      if (error) return alert(`Could not delete: ${error.message}`);
+    }
+    resetFormData();
+    navigate('/');
+  };
 
-  const confirmDelete = () => {
-    resetFormData()
-
-    // 2) (optional) call an API to delete on the backend
-    //    await supabase.from('installation').delete().eq('installation_id', installationId)
-
-    setShowDeleteModal(false)
-    navigate('/')
-  }
-
-  const cancelDelete = () => {
-    setShowDeleteModal(false)
-  }
+  const goOverview = async () => {
+    if (canEdit && !(await doSave())) return;
+    navigate(`/jobs/${formData.installationId}`);
+  };
 
   return (
     <>
       <div className="topbar-nav">
         <div className="left-section">
-          <FaHome className="icon home-icon" onClick={() => navigate('/')} />
+          <FaHome className="icon home-icon" title="All jobs" onClick={() => navigate('/')} />
+          {formData.jobRef && (
+            <span style={{ marginLeft: 12, fontSize: 13, opacity: 0.85, whiteSpace: 'nowrap' }}>
+              {formData.jobRef} · {statusLabel(status)}
+            </span>
+          )}
         </div>
-        
+
         <div className="nav-tabs">
-          {tabs.map(tab => (
-            <NavLink
-              key={tab.path}
-              to={tab.path}
-              className={({ isActive }) =>
-                isActive ? 'nav-tab active' : 'nav-tab'
-              }
-            >
+          {TABS.map(tab => (
+            <NavLink key={tab.path} to={tab.path} className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
               {tab.label}
             </NavLink>
           ))}
         </div>
 
         <div className="right-section">
-          <FaSave className="icon save-icon" onClick={handleSave} />
-          <FaTrash className="icon delete-icon" onClick={handleDelete} />
+          <FaClipboardCheck className="icon" title="Save & open job overview (evidence, checklist, submit)" onClick={goOverview} />
+          {canEdit && (
+            <FaSave
+              className="icon save-icon"
+              title={saving ? 'Saving…' : 'Save'}
+              style={{ opacity: saving ? 0.5 : 1 }}
+              onClick={async () => {
+                if (!saving && (await doSave())) alert('Saved.');
+              }}
+            />
+          )}
+          {canDelete && <FaTrash className="icon delete-icon" title="Delete draft" onClick={() => setShowDeleteModal(true)} />}
         </div>
       </div>
 
       <ConfirmModal
         isOpen={showDeleteModal}
-        title="Confirm Delete Installation"
+        title="Delete this job?"
         message={
           <>
             <p>
-              <strong>Warning:</strong> Deleting this installation will
-              permanently remove all related records (consumer details,
-              plumbers, certificates, and uploaded documents) from the database.
+              This permanently deletes the draft job and its customer, premises, decommissioning and evidence records.
+              Documents shared with other jobs at the same premises are kept.
             </p>
-            <p>This action cannot be undone. Are you sure?</p>
+            <p>This cannot be undone.</p>
           </>
         }
         onConfirm={confirmDelete}
-        onCancel={cancelDelete}
+        onCancel={() => setShowDeleteModal(false)}
       />
     </>
-  )
+  );
 }

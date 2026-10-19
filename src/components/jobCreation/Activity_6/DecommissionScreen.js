@@ -6,7 +6,6 @@ import RadioField from '../../../utils/RadioField';
 import CollapsibleSection from '../../../utils/CollapsibleSection';
 import { useFormData } from '../../../contexts/FormDataContext';
 import LeftSideBar from '../LeftSideBar';
-import RightSideBar from '../RightSideBar';
 import { FaTrash } from 'react-icons/fa';
 import { FOOTNOTES, getScenarios } from '../../constants/Decommissioning';
 import { validateInstallationLimits,
@@ -14,7 +13,6 @@ import { validateInstallationLimits,
  } from '../../../utils/InstallationLimits';
 import { useNavigate } from 'react-router-dom';
 import { FaExclamationTriangle } from 'react-icons/fa';
-import DecommissionWorkflow from '../../../utils/DecommissionWorkflow';
 
 export default function DecommissionScreen() {
   const navigate = useNavigate();
@@ -38,6 +36,7 @@ export default function DecommissionScreen() {
   useEffect(() => {
     const errs = validateInstallationLimits(formData);
     updateFormData({ installationLimitError: errs });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the listed fields change
   }, [
     formData.premisesType,
     formData.ductedCount,
@@ -80,22 +79,6 @@ export default function DecommissionScreen() {
     setActiveProduct(prev => (prev > 0 && prev === index ? prev - 1 : prev))
   }
   
-  const isSectionInvalid = (fields) =>
-    fields.some((fieldKey) => {
-      const v = formData[fieldKey];
-      return v === '' || v === null || v === undefined;
-    });
-
-  // === Section‐validity checks ===
-  const scenInvalid = isSectionInvalid(['decommissionScenario']);
-  const productInvalid = isSectionInvalid(['brand', 'model']);
-  const disposalInvalid = isSectionInvalid([
-    'decommissionMethod',
-    'removed',
-    // if removed === false then notRemovedReason is required:
-    formData.removed === false && 'notRemovedReason',
-    'ductReplacement',
-  ].filter(Boolean));
 
   return (
     <div className="job-layout-container">

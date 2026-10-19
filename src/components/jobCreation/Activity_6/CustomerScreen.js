@@ -206,7 +206,7 @@ export default function CustomerScreen() {
     const { address, type, docs, history } = pendingReuse;
 
     // 1️⃣ re-link the installation to the chosen premises
-    const { res } = await upsertPremises({
+    const res = await upsertPremises({
       companyInput: formData.companyId,
       activityType: formData.activityType,
       installationId: formData.installationId,
@@ -326,6 +326,7 @@ export default function CustomerScreen() {
     } else {
       updateInvalidFields("Client Details", "Is building older than 2 years?", null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the listed fields change
   }, [formData.buildingAgeCheck]);
 
   useEffect(() => {
@@ -415,6 +416,7 @@ export default function CustomerScreen() {
       );
     }
   },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the listed fields change
     [
       formData.premisesType,
       formData.ductedCount,
@@ -508,36 +510,16 @@ export default function CustomerScreen() {
         return;                     // ← stop normal processing
       }
 
-      // 3) For each, check for an active install
-      for (const { premises_id } of finishedPrems) {
-        const { data: rawConflicts, error: cErr } = await safeQuery(
-          () => supabase
-            .from('installation')
-            .select('installation_id, updated_at, complete')
-            .eq('premises_id', premises_id)
-            .eq('complete', false)
-            .neq('installation_id', formData.installationId)
-            .limit(1),
-          { signOut, navigate }
-        );
-        if (cErr) return;
-        const conflicts = rawConflicts ?? [];
-        if (conflicts.length > 0) {
-          setConflictingInstalls(conflicts);
-          setAddressConflict(true);
-          return;
-        }
-      }
-
       // 4) No conflicts → clear block
       setAddressConflict(false);
     };
 
     reconcileAddress();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the listed fields change
   }, [formData.installationAddress]);
 
-  const handleAddressSelected = suggestion => {
-    updateFormData({ installationAddress: suggestion.address });
+  const handleAddressSelected = address => {
+    updateFormData({ installationAddress: address });
   };
 
   const isClientInvalid = [
@@ -611,7 +593,7 @@ export default function CustomerScreen() {
                       <button
                         onClick={() => {
                           setAddressConflict(false);
-                          navigate(`/create-job/full`);
+                          navigate(`/jobs/${inst.installation_id}`);
                         }}
                       >
                         Open This Job
