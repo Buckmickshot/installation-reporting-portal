@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import './TopBarNavigator.css';
-import { FaHome, FaSave, FaTrash, FaClipboardCheck } from 'react-icons/fa';
+import { FaSave, FaTrash } from 'react-icons/fa';
 import { useFormData } from '../../contexts/FormDataContext';
 import { save } from '../../relationship/save';
 import { supabase } from '../../relationship/supabaseConfig';
@@ -74,24 +74,24 @@ export default function TopBarNavigator() {
     <>
       <div className="topbar-nav">
         <div className="left-section">
-          <FaHome className="icon home-icon" title="All jobs" onClick={() => navigate('/')} />
-          {formData.jobRef && (
-            <span style={{ marginLeft: 12, fontSize: 13, opacity: 0.85, whiteSpace: 'nowrap' }}>
-              {formData.jobRef} · {statusLabel(status)}
+          <button type="button" className="topbar-back" onClick={goOverview} title={canEdit ? 'Save and go back to the job' : 'Back to the job'}>
+            <span aria-hidden="true">←</span>
+            <span>
+              <b>{formData.jobRef || 'Job'}</b>
+              <small>{statusLabel(status)}{canEdit ? ' · saves on exit' : ''}</small>
             </span>
-          )}
+          </button>
         </div>
 
         <div className="nav-tabs">
           {TABS.map(tab => (
-            <NavLink key={tab.path} to={tab.path} className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
+            <NavLink key={tab.path} to={{ pathname: tab.path, search: `?job=${formData.installationId}` }} className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
               {tab.label}
             </NavLink>
           ))}
         </div>
 
         <div className="right-section">
-          <FaClipboardCheck className="icon" title="Save & open job overview (evidence, checklist, submit)" onClick={goOverview} />
           {canEdit && (
             <FaSave
               className="icon save-icon"

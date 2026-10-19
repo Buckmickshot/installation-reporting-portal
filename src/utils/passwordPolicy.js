@@ -11,6 +11,24 @@ export const PASSWORD_RULES = [
 export const passwordIssues = (p = '') => PASSWORD_RULES.filter(r => !r.test(p));
 export const isStrongPassword = p => passwordIssues(p).length === 0;
 
+/** A random password that satisfies every rule, e.g. for a new staff account. */
+export function generatePassword(length = 14) {
+  const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%&*?'];
+  const all = sets.join('');
+  const rand = n => {
+    const a = new Uint32Array(1);
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    return a[0] % n;
+  };
+  const chars = sets.map(s => s[rand(s.length)]);
+  while (chars.length < length) chars.push(all[rand(all.length)]);
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = rand(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
+
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
 export const isEmail = e => EMAIL_RE.test(String(e || '').trim());
 
@@ -24,6 +42,7 @@ export function authErrorMessage(error) {
   if (code === 'same_password' || msg.includes('should be different')) return 'Your new password must be different from your current password.';
   if (code === 'weak_password' || msg.includes('weak')) return 'That password is too weak. Please choose a stronger one.';
   if (code === 'otp_expired' || msg.includes('expired')) return 'This link has expired. Please request a new one.';
+  if (code === 'user_banned' || msg.includes('banned')) return 'This account has been deactivated. Contact your administrator.';
   if (msg.includes('email not confirmed')) return 'Please confirm your email address before signing in.';
   return error?.message || 'Something went wrong. Please try again.';
 }

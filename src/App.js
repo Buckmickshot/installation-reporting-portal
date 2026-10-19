@@ -8,7 +8,7 @@ import { AuthProvider } from './contexts/AuthProvider';
 import LoginPage                  from './components/Authentication/LoginPage';
 import ProtectedRoute             from './components/Authentication/ProtectedRoutes';
 import JobLayout                  from './components/jobCreation/JobLayout';
-import InstallationTypeScreen     from './components/jobCreation/InstallationTypeScreen';
+import NewJobPage from './components/jobCreation/NewJobPage';
 import HomeScreen                 from './components/homeScreen/HomeScreen';
 import CustomerScreen             from './components/jobCreation/Activity_6/CustomerScreen';
 import BenefitInstallationScreen  from './components/jobCreation/Activity_6/BenefitIntallationScreen';
@@ -17,13 +17,19 @@ import ReviewInstallScreen              from './components/jobCreation/Activity_
 import DeclarationScreen          from './components/jobCreation/Activity_6/DeclarationScreen';
 import PostInstallScreen          from './components/jobCreation/Activity_6/PostInstallScreen';
 import WorkerScreen from './components/jobCreation/Activity_6/WorkerScreen';
-import SettingsScreen from './components/homeScreen/SettingsScreen';
+import TeamPage from './components/team/TeamPage';
 import AuthCallback from './components/Authentication/AuthCallback';
 import ResetPassword from './components/Authentication/ResetPassword';
 import JobOverview from './components/jobs/JobOverview';
-import FieldCapture from './components/jobs/FieldCapture';
+import FieldApp from './field/FieldApp';
+import { useParams } from 'react-router-dom';
 import AccountSettings from './components/settings/AccountSettings';
 import ForgotPassword from './components/Authentication/ForgotPassword';
+
+function FieldRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/app/jobs/${id}`} replace />;
+}
 
 export default function App() {
   return (
@@ -43,10 +49,12 @@ export default function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<HomeScreen />} />
                 <Route path="/settings" element={<AccountSettings />} />
-                <Route path="/choose-installation-type" element={<InstallationTypeScreen />} />
+                <Route path="/new-job" element={<NewJobPage />} />
+                <Route path="/choose-installation-type" element={<Navigate to="/new-job" replace />} />
                 <Route path="/jobs/:id" element={<JobOverview />} />
-                <Route path="/jobs/:id/field" element={<FieldCapture />} />
-                <Route path="/team" element={<SettingsScreen />} />
+                <Route path="/jobs/:id/field" element={<FieldRedirect />} />
+                <Route path="/app/*" element={<FieldApp />} />
+                <Route path="/team" element={<TeamPage />} />
                 <Route path="/security" element={<Navigate to="/settings" replace />} />
 
                 <Route path="/create-job/:workType/:premiseType?" element={<JobLayout />}>

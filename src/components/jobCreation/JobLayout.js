@@ -1,8 +1,10 @@
 // src/components/jobCreation/JobLayout.js
-import React, { useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Navigate, Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import TopBarNavigator from './TopBarNavigator';
 import { useFormData } from '../../contexts/FormDataContext';
+import { useAuth } from '../../contexts/AuthProvider';
+import { LoadInstallation } from '../homeScreen/LoadInstallation';
 
 function usePreventPageUnload(shouldPrevent = true) {
   useEffect(() => {
@@ -18,11 +20,28 @@ function usePreventPageUnload(shouldPrevent = true) {
 }
 
 export default function JobLayout() {
-  const { formData } = useFormData();
+  const { formData, updateFormData, resetFormData } = useFormData();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const jobParam = params.get('job');
+  const [state, setState] = useState('idle'); // idle | loading | failed
   usePreventPageUnload(Boolean(formData.installationId));
 
-  // Form state lives in memory; after a page refresh there is no job loaded.
-  if (!formData.installationId) return <Navigate to="/" replace />;
+  // after a refresh the form state is gone — reload it from the ?job= id in the URL
+  useEffect(() => {
+    if (formData.installationId || !jobParam || state !== 'idle') return;
+    setState('loading');
+    resetFormData();
+    LoadInstallation(jobParam, updateFormData, signOut, navigate)
+      .then(() => setState('idle'))
+      .catch(() => setState('failed'));
+  }, [formData.installationId, jobParam, state, resetFormData, updateFormData, signOut, navigate]);
+
+  if (!formData.installationId) {
+    if (jobParam && state !== 'failed') return <p style={{ padding: 24 }}>Loading job…</p>;
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <>

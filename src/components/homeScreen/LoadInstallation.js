@@ -119,5 +119,6 @@ export async function LoadInstallation(installationId, updateFormData, signOut, 
 /** Path of the wizard for a job, e.g. /create-job/activity-6/residential */
 export function wizardPath(job) {
   const activity = job.activity_type || 'activity-6';
-  return job.premises_type ? `/create-job/${activity}/${job.premises_type}` : `/create-job/${activity}`;
+  const base = job.premises_type ? `/create-job/${activity}/${job.premises_type}` : `/create-job/${activity}`;
+  return `${base}/customer?job=${job.installation_id}`;
 }

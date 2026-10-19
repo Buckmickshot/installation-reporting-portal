@@ -42,7 +42,7 @@ export async function addEvidence({ installationId, kind, file, note }) {
   return data;
 }
 
-export default function EvidencePanel({ installationId, evidence, editable, onChanged, compact = false }) {
+export default function EvidencePanel({ installationId, evidence, editable, onChanged, compact = false, allowSign = true }) {
   const [kind, setKind] = useState('new_outdoor_unit');
   const [busy, setBusy] = useState(false);
   const [signing, setSigning] = useState(null); // 'customer_signature' | 'installer_signature'
@@ -98,11 +98,11 @@ export default function EvidencePanel({ installationId, evidence, editable, onCh
               {photoKinds.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
             </select>
             <button className="btn primary" onClick={() => fileRef.current?.click()} disabled={busy}>
-              {busy && !signing ? 'Uploading…' : '📷 Add photo'}
+              {busy && !signing ? 'Uploading…' : 'Upload photo'}
             </button>
             <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={onFiles} />
-            <button className="btn" onClick={() => setSigning('customer_signature')} disabled={busy}>✍️ Customer signature</button>
-            <button className="btn" onClick={() => setSigning('installer_signature')} disabled={busy}>✍️ Installer signature</button>
+            {allowSign && <button className="btn" onClick={() => setSigning('customer_signature')} disabled={busy}>✍️ Customer signature</button>}
+            {allowSign && <button className="btn" onClick={() => setSigning('installer_signature')} disabled={busy}>✍️ Installer signature</button>}
           </div>
           {signing && (
             <div className="card" style={{ marginBottom: 12 }}>

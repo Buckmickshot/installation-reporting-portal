@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../relationship/supabaseConfig';
 import { useAuth } from '../../contexts/AuthProvider';
-import { useFormData } from '../../contexts/FormDataContext';
 import { safeQuery } from '../Authentication/SafeQuery';
 import AppHeader from '../layout/AppHeader';
 import { STATUSES, STATUS_BY_VALUE, statusLabel, formatDate } from '../../utils/jobStatus';
@@ -15,8 +14,7 @@ const OPEN_STATUSES = ['draft', 'rfi', 'ready_for_review', 'submitted', 'approve
 
 export default function HomeScreen() {
   const navigate = useNavigate();
-  const { user, profile, company, signOut } = useAuth();
-  const { updateFormData, resetFormData } = useFormData();
+  const { user, profile, signOut } = useAuth();
   const isGlobal = !!profile?.is_global_admin;
 
   const [jobs, setJobs] = useState([]);
@@ -26,7 +24,6 @@ export default function HomeScreen() {
   const [query, setQuery] = useState('');
   const [assignee, setAssignee] = useState('all');
   const [companyFilter, setCompanyFilter] = useState('all');
-  const [newJobCompany, setNewJobCompany] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,13 +82,7 @@ export default function HomeScreen() {
     });
   }, [scoped, status, assignee, query, user]);
 
-  const startJob = () => {
-    const cid = isGlobal ? newJobCompany : company?.company_id;
-    if (!cid) return alert('Choose which company this job is for.');
-    resetFormData();
-    updateFormData({ companyId: cid });
-    navigate('/choose-installation-type');
-  };
+  const startJob = () => navigate('/new-job');
 
   const resetDemo = async () => {
     if (!window.confirm('Reset the demo jobs (Northside & Bayside) to their starting state? Other jobs are not touched.')) return;
@@ -140,17 +131,9 @@ export default function HomeScreen() {
         <div className="page-title">
           <h1>Jobs</h1>
           <div className="actions">
-            {isGlobal && (
-              <select className="input" value={newJobCompany} onChange={e => setNewJobCompany(e.target.value)} aria-label="Company for new job">
-                <option value="">New job for…</option>
-                {companies.filter(c => c.company_active).map(c => (
-                  <option key={c.company_id} value={c.company_id}>{c.name}</option>
-                ))}
-              </select>
-            )}
             {isGlobal && <button className="btn" onClick={resetDemo} title="Restore the showcase jobs">↺ Reset demo data</button>}
             <button className="btn" onClick={exportCsv} disabled={!visible.length}>Export CSV</button>
-            <button className="btn primary" onClick={startJob} disabled={isGlobal && !newJobCompany}>+ New job</button>
+            <button className="btn primary" onClick={startJob}>+ New job</button>
           </div>
         </div>
 

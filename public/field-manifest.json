@@ -1,0 +1,14 @@
+{
+  "short_name": "ASAP Field",
+  "name": "ASAP Field – installer app",
+  "icons": [
+    { "src": "logo192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "logo512.png", "type": "image/png", "sizes": "512x512" }
+  ],
+  "start_url": "app",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1e2f40",
+  "background_color": "#f2f5f8"
+}

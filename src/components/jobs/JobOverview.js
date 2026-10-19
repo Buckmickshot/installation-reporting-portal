@@ -8,6 +8,7 @@ import { useFormData } from '../../contexts/FormDataContext';
 import { LoadInstallation, wizardPath } from '../homeScreen/LoadInstallation';
 import AppHeader from '../layout/AppHeader';
 import EvidencePanel from './EvidencePanel';
+import { MenuButton } from '../ui/Modal';
 import { readinessChecklist } from '../../utils/readiness';
 import { STATUS_BY_VALUE, statusLabel, availableActions, isEditable, formatDate } from '../../utils/jobStatus';
 import { buildAssignmentFormPdf, downloadBytes } from '../../forms/assignmentFormPdf';
@@ -195,15 +196,16 @@ export default function JobOverview() {
     <div className="portal">
       <AppHeader />
       <main className="page">
-        <p style={{ margin: '0 0 8px' }}><Link to="/" className="sub">← All jobs</Link></p>
+        <nav className="crumbs"><Link to="/">Jobs</Link><span>/</span>{job.job_ref}</nav>
         <div className="page-title">
           <h1 className="mono" style={{ fontSize: '1.3rem' }}>{job.job_ref}</h1>
           <span className={`pill ${tone}`}>{statusLabel(job.status)}</span>
           <div className="actions">
-            <button className="btn" onClick={() => exportPdf()} disabled={exporting} title="Official ESC Activity 6 residential assignment form, filled in">{exporting ? 'Creating…' : '📄 Assignment form (PDF)'}</button>
-            <button className="btn" onClick={exportDocx} disabled={exporting} title="Same form as an editable Word document">Word</button>
-            <Link className="btn" to={`/jobs/${id}/field`}>📱 Field mode</Link>
-            <Link className="btn" to={wizardPath(job)}>{editable ? 'Edit job form' : 'View job form'}</Link>
+            <MenuButton label={exporting ? 'Creating…' : 'Rebate application form'} disabled={exporting} items={[
+              { label: 'Download PDF', hint: 'Official ESC Activity 6 assignment form, filled in', onClick: () => exportPdf() },
+              { label: 'Download Word (.docx)', hint: 'Same form, editable', onClick: exportDocx },
+            ]} />
+            <Link className="btn primary" to={wizardPath(job)}>{editable ? 'Edit job form' : 'View job form'}</Link>
             {['draft', 'cancelled'].includes(job.status) && (isAdmin || job.user_id === user.id) && (
               <button className="btn danger" onClick={deleteJob}>Delete</button>
             )}
@@ -233,7 +235,8 @@ export default function JobOverview() {
 
             <section className="card">
               <h2>Photos &amp; signatures</h2>
-              <EvidencePanel installationId={id} evidence={evidence} editable={editable} onChanged={() => { loadEvidence(); loadEvents(); loadJob(); }} />
+              <p className="sub" style={{ marginTop: -6 }}>Installers capture these on site with the <a href={`${process.env.PUBLIC_URL || ''}/app/jobs/${id}`} target="_blank" rel="noreferrer">ASAP Field app</a>.</p>
+              <EvidencePanel installationId={id} evidence={evidence} editable={editable} allowSign={false} onChanged={() => { loadEvidence(); loadEvents(); loadJob(); }} />
             </section>
 
             <section className="card">
