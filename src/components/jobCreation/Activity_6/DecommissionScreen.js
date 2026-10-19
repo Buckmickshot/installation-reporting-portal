@@ -377,6 +377,27 @@ export default function DecommissionScreen() {
                   </CollapsibleSection>
                 )}
 
+                {/* Section 3 of the assignment form: agreed scope of building repair work */}
+                <RadioField
+                    label="Building repair work the installer will do (assignment form, Section 3)"
+                    name="repairScope"
+                    options={[
+                    { label: 'All necessary repair work', value: 'all' },
+                    { label: 'Some of the repair work', value: 'some' },
+                    { label: 'No repair work', value: 'none' },
+                    ]}
+                    selectedValue={formData.repairScope}
+                    onChange={(v) => handleChange('repairScope', v)}
+                    layout="horizontal"
+                />
+                {formData.repairScope === 'some' && (
+                    <Field
+                    label="Which repair work is included / not included"
+                    value={formData.repairDetails}
+                    onChange={(v) => handleChange('repairDetails', v)}
+                    />
+                )}
+
                 {/* COES and VBA toggles */}
                 <CollapsibleSection 
                   id="certificates" 

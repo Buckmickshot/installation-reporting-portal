@@ -1,354 +1,379 @@
-// Generates the completed VEEC assignment record (Activity 6 – residential) as a
-// PDF in the browser: consumer & premises, decommissioning, installation and
-// tradespeople, assignment of certificates, signatures and photo evidence.
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { getScenarios } from '../components/constants/Decommissioning';
+// Renders the completed ESC Activity 6 (Residential) VEEC assignment form as a PDF
+// in the browser. Structure and wording follow the ESC template V1.4 exactly; values,
+// tick boxes and e-signatures come from the job. A photo-evidence attachment follows.
+import { PDFDocument, rgb } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
+import { buildA6Model, BOX } from './a6Model';
+import * as T from './a6Text';
 import { evidenceLabel, formatDate } from '../utils/jobStatus';
 
 const A4 = [595.28, 841.89];
-const M = 42; // margin
-const INK = rgb(0.11, 0.15, 0.2);
-const SUB = rgb(0.36, 0.41, 0.47);
-const LINE = rgb(0.85, 0.88, 0.91);
-const NAVY = rgb(0.17, 0.24, 0.31);
-const ACCENT = rgb(0.2, 0.6, 0.86);
+const M = 44;
+const CW = A4[0] - 2 * M;
+const INK = rgb(0.1, 0.12, 0.15);
+const SUB = rgb(0.38, 0.42, 0.47);
+const TEAL = rgb(0.29, 0.5, 0.63);
+const ROW = rgb(0.95, 0.95, 0.95);
+const ROW2 = rgb(0.9, 0.9, 0.9);
+const VALUE = rgb(0.07, 0.2, 0.36);
+const FONT_BASE = `${process.env.PUBLIC_URL || ''}/fonts`;
 
-// Standard PDF fonts only cover WinAnsi — map the few characters we use that it lacks.
-const clean = v =>
-  String(v ?? '')
-    .replace(/≥/g, '>=')
-    .replace(/≤/g, '<=')
-    .replace(/[↔]/g, '<->')
-    .replace(/[✓✔]/g, 'Yes')
-    .replace(/[^\x20-\x7E\xA0-\xFF–—‘’“”•…€]/g, '');
-
-const yesNo = v => (v === true || v === 'true' ? 'Yes' : v === false || v === 'false' ? 'No' : v ? String(v) : '—');
-
-async function fetchImage(pdf, url) {
+async function loadBytes(url) {
+  const res = await fetch(url, { mode: 'cors' });
+  if (!res.ok) throw new Error(`Could not load ${url}`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+async function loadImage(pdf, url) {
   try {
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) return null;
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
-    return isPng ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+    const b = await loadBytes(url);
+    return b[0] === 0x89 && b[1] === 0x50 ? await pdf.embedPng(b) : await pdf.embedJpg(b);
   } catch {
     return null;
   }
 }
 
-class Writer {
-  constructor(pdf, fonts, meta) {
-    this.pdf = pdf;
-    this.f = fonts;
-    this.meta = meta;
-    this.page = null;
-    this.y = 0;
+// rough height of a table's first row, used to avoid orphaned table titles
+const r0Height = r => (!r ? 20 : r.options ? Math.max(30, Math.ceil(r.options.length / 2) * 13 + 12) : 26);
+
+class Doc {
+  constructor(pdf, f, meta) {
+    Object.assign(this, { pdf, f, meta });
     this.newPage();
   }
 
   newPage() {
     this.page = this.pdf.addPage(A4);
-    const { page } = this;
-    page.drawRectangle({ x: 0, y: A4[1] - 54, width: A4[0], height: 54, color: NAVY });
-    page.drawText('Victorian Energy Upgrades  ·  Activity 6 – Space heating & cooling (Residential)', {
-      x: M, y: A4[1] - 24, size: 10.5, font: this.f.bold, color: rgb(1, 1, 1),
-    });
-    page.drawText(clean(`VEEC assignment record  ·  ${this.meta.jobRef}  ·  ${this.meta.company}`), {
-      x: M, y: A4[1] - 40, size: 8.5, font: this.f.reg, color: rgb(0.85, 0.9, 0.95),
-    });
+    this.y = A4[1] - 40;
     if (this.meta.watermark) {
-      page.drawText(this.meta.watermark, {
-        x: 95, y: 330, size: 46, font: this.f.bold, color: rgb(0.86, 0.35, 0.3), opacity: 0.12, rotate: { type: 'degrees', angle: 35 },
+      this.page.drawText(this.meta.watermark, {
+        x: 90, y: 300, size: 50, font: this.f.bold, color: rgb(0.85, 0.3, 0.25), opacity: 0.1, rotate: { type: 'degrees', angle: 35 },
       });
     }
-    this.y = A4[1] - 78;
   }
 
   ensure(h) {
-    if (this.y - h < 60) this.newPage();
-  }
-
-  section(num, title) {
-    this.ensure(40);
-    this.y -= 8;
-    this.page.drawRectangle({ x: M, y: this.y - 18, width: A4[0] - 2 * M, height: 22, color: rgb(0.93, 0.95, 0.97) });
-    this.page.drawRectangle({ x: M, y: this.y - 18, width: 3, height: 22, color: ACCENT });
-    this.page.drawText(clean(`Section ${num}  ${title}`), { x: M + 10, y: this.y - 11, size: 11, font: this.f.bold, color: INK });
-    this.y -= 30;
-  }
-
-  part(title) {
-    this.ensure(24);
-    this.page.drawText(clean(title), { x: M, y: this.y - 10, size: 9.5, font: this.f.bold, color: SUB });
-    this.y -= 18;
+    if (this.y - h < 64) this.newPage();
   }
 
   wrap(text, size, width, font = this.f.reg) {
-    // break over-long tokens (model / serial numbers) so they never spill into the next column
-    const words = clean(text)
-      .split(/\s+/)
+    const words = String(text ?? '').split(/\s+/).filter(Boolean)
       .flatMap(w => (font.widthOfTextAtSize(w, size) > width ? w.split(/(?<=\/)/) : [w]))
       .flatMap(w => {
         if (font.widthOfTextAtSize(w, size) <= width) return [w];
-        const parts = [];
-        let cur = '';
-        for (const ch of w) {
-          if (font.widthOfTextAtSize(cur + ch, size) > width && cur) {
-            parts.push(cur);
-            cur = ch;
-          } else cur += ch;
-        }
-        if (cur) parts.push(cur);
-        return parts;
+        const out = []; let cur = '';
+        for (const ch of w) { if (font.widthOfTextAtSize(cur + ch, size) > width && cur) { out.push(cur); cur = ch; } else cur += ch; }
+        return cur ? [...out, cur] : out;
       });
-    const lines = [];
-    let line = '';
+    const lines = []; let line = '';
     for (const w of words) {
       const t = line ? `${line} ${w}` : w;
-      if (font.widthOfTextAtSize(t, size) > width && line) {
-        lines.push(line);
-        line = w;
-      } else line = t;
+      if (font.widthOfTextAtSize(t, size) > width && line) { lines.push(line); line = w; } else line = t;
     }
     if (line) lines.push(line);
     return lines.length ? lines : [''];
   }
 
-  /** two-column label/value grid */
-  fields(rows) {
-    const colW = (A4[0] - 2 * M) / 2;
-    for (let i = 0; i < rows.length; i += 2) {
-      const pair = rows.slice(i, i + 2);
-      const heights = pair.map(([, v]) => this.wrap(v || '—', 9.5, colW - 14).length * 12 + 14);
-      const h = Math.max(...heights);
-      this.ensure(h + 4);
-      pair.forEach(([label, value], j) => {
-        const x = M + j * colW;
-        this.page.drawText(clean(label), { x, y: this.y - 8, size: 7.5, font: this.f.reg, color: SUB });
-        this.wrap(value || '—', 9.5, colW - 14).forEach((ln, k) =>
-          this.page.drawText(ln, { x, y: this.y - 20 - k * 12, size: 9.5, font: this.f.reg, color: INK })
-        );
-      });
-      this.y -= h + 4;
+  text(str, { x = M, size = 9, font = this.f.reg, color = INK, width = CW, gap = 3, indent = 0 } = {}) {
+    const lines = this.wrap(str, size, width - indent, font);
+    this.ensure(lines.length * (size + gap));
+    lines.forEach(l => { this.page.drawText(l, { x: x + indent, y: this.y - size, size, font, color }); this.y -= size + gap; });
+  }
+
+  space(h) { this.y -= h; }
+
+  heading(str) { this.space(8); this.ensure(40); this.text(str, { size: 13, font: this.f.bold }); this.space(4); }
+  part(str) { this.space(4); this.ensure(30); this.text(str, { size: 10.5, font: this.f.bold, color: TEAL }); this.space(2); }
+
+  box(x, y, checked) {
+    this.page.drawRectangle({ x, y, width: 8, height: 8, borderColor: INK, borderWidth: 0.8, color: rgb(1, 1, 1) });
+    if (checked) {
+      this.page.drawLine({ start: { x: x + 1.5, y: y + 1.5 }, end: { x: x + 6.5, y: y + 6.5 }, thickness: 1.2, color: VALUE });
+      this.page.drawLine({ start: { x: x + 1.5, y: y + 6.5 }, end: { x: x + 6.5, y: y + 1.5 }, thickness: 1.2, color: VALUE });
     }
   }
 
-  table(headers, rows, widths) {
-    const total = A4[0] - 2 * M;
-    const w = widths.map(x => x * total);
-    const drawRow = (cells, bold, shade) => {
-      const lines = cells.map((c, i) => this.wrap(c ?? '—', 8.5, w[i] - 8, bold ? this.f.bold : this.f.reg));
-      const h = Math.max(...lines.map(l => l.length)) * 11 + 8;
-      this.ensure(h);
-      if (shade) this.page.drawRectangle({ x: M, y: this.y - h, width: total, height: h, color: rgb(0.96, 0.97, 0.98) });
-      let x = M;
-      lines.forEach((ls, i) => {
-        ls.forEach((ln, k) =>
-          this.page.drawText(ln, { x: x + 4, y: this.y - 12 - k * 11, size: 8.5, font: bold ? this.f.bold : this.f.reg, color: bold ? SUB : INK })
-        );
-        x += w[i];
-      });
-      this.page.drawLine({ start: { x: M, y: this.y - h }, end: { x: M + total, y: this.y - h }, thickness: 0.6, color: LINE });
-      this.y -= h;
-    };
-    drawRow(headers, true, true);
-    (rows.length ? rows : [headers.map(() => '—')]).forEach(r => drawRow(r, false, false));
-    this.y -= 8;
-  }
-
-  paragraph(text, size = 8.5, color = SUB) {
-    const lines = this.wrap(text, size, A4[0] - 2 * M);
-    this.ensure(lines.length * (size + 3) + 6);
-    lines.forEach(ln => {
-      this.page.drawText(ln, { x: M, y: this.y - size, size, font: this.f.reg, color });
-      this.y -= size + 3;
+  /** shaded table: title bar + rows. row = { label, value } | { label, options:[[label,checked]] } | { node: fn } */
+  table(title, rows) {
+    const pad = 5;
+    if (title) {
+      this.ensure(r0Height(rows[0]) + 24); // keep the title bar with its first row
+      this.page.drawRectangle({ x: M, y: this.y - 17, width: CW, height: 17, color: TEAL });
+      this.page.drawText(title, { x: M + pad, y: this.y - 12, size: 9.5, font: this.f.bold, color: rgb(1, 1, 1) });
+      this.y -= 17;
+    }
+    rows.forEach((r, i) => {
+      const bg = i % 2 ? ROW2 : ROW;
+      if (r.options) {
+        const labelW = r.label ? CW * 0.52 : 0;
+        const labelLines = r.label ? this.wrap(r.label, 9, labelW - 2 * pad) : [];
+        // lay options out in flowing columns
+        const optX0 = M + labelW + pad;
+        const optW = CW - labelW - 2 * pad;
+        const placed = []; let ox = 0; let oy = 0;
+        r.options.forEach(([lab, on]) => {
+          const lw = this.wrap(lab, 9, (r.optionWidth || optW) - 12);
+          const w = r.optionWidth ? r.optionWidth : Math.min(optW, 12 + this.f.reg.widthOfTextAtSize(lab, 9) + 10);
+          if (ox + w > optW + 0.5 && ox > 0) { ox = 0; oy += 13 * Math.max(1, placed.length ? placed[placed.length - 1].n : 1); }
+          placed.push({ x: ox, y: oy, lines: lw, on, n: lw.length });
+          ox += w;
+        });
+        const optH = placed.length ? Math.max(...placed.map(p => p.y + p.n * 12)) : 0;
+        const h = Math.max(labelLines.length * 12, optH, 12) + 2 * pad;
+        this.ensure(h);
+        this.page.drawRectangle({ x: M, y: this.y - h, width: CW, height: h, color: bg });
+        labelLines.forEach((l, k) => this.page.drawText(l, { x: M + pad, y: this.y - pad - 9 - k * 12, size: 9, font: this.f.reg, color: INK }));
+        placed.forEach(p => {
+          const bx = optX0 + p.x; const by = this.y - pad - p.y;
+          this.box(bx, by - 9, p.on);
+          p.lines.forEach((l, k) => this.page.drawText(l, { x: bx + 12, y: by - 8 - k * 12, size: 9, font: this.f.reg, color: INK }));
+        });
+        this.y -= h;
+      } else {
+        const label = r.label;
+        const value = r.value == null || r.value === '' ? '' : String(r.value);
+        const lw = this.f.reg.widthOfTextAtSize(label + ' ', 9);
+        const inline = lw < CW * 0.6;
+        const lines = inline ? this.wrap(value, 9.5, CW - 2 * pad - lw, this.f.bold) : this.wrap(value, 9.5, CW - 2 * pad, this.f.bold);
+        const labelLines = inline ? [label] : this.wrap(label, 9, CW - 2 * pad);
+        const h = (inline ? Math.max(1, lines.length) : labelLines.length + (value ? lines.length : 0)) * 12.5 + 2 * pad;
+        this.ensure(h);
+        this.page.drawRectangle({ x: M, y: this.y - h, width: CW, height: h, color: bg });
+        labelLines.forEach((l, k) => this.page.drawText(l, { x: M + pad, y: this.y - pad - 9 - k * 12.5, size: 9, font: this.f.reg, color: INK }));
+        if (value) {
+          lines.forEach((l, k) => this.page.drawText(l, {
+            x: inline ? M + pad + lw : M + pad,
+            y: this.y - pad - 9 - (inline ? k : labelLines.length + k) * 12.5,
+            size: 9.5, font: this.f.bold, color: VALUE,
+          }));
+        }
+        this.y -= h;
+      }
     });
-    this.y -= 6;
+    this.space(8);
   }
 
-  signature(label, image, name, date) {
-    this.ensure(92);
-    const x = M;
-    const w = 250;
-    this.page.drawText(clean(label), { x, y: this.y - 9, size: 8, font: this.f.reg, color: SUB });
-    this.page.drawRectangle({ x, y: this.y - 72, width: w, height: 58, borderColor: LINE, borderWidth: 1 });
+  bullets(items, size = 9) {
+    items.forEach(it => {
+      const [main, ...subs] = Array.isArray(it) ? it : [it];
+      const lines = this.wrap(main, size, CW - 14);
+      this.ensure(lines.length * (size + 3) + 2);
+      this.page.drawCircle({ x: M + 4, y: this.y - size + 3, size: 1.6, color: INK });
+      lines.forEach(l => { this.page.drawText(l, { x: M + 14, y: this.y - size, size, font: this.f.reg, color: INK }); this.y -= size + 3; });
+      subs.forEach(s => {
+        const sl = this.wrap(s, size, CW - 34);
+        this.ensure(sl.length * (size + 3));
+        this.page.drawText('–', { x: M + 20, y: this.y - size, size, font: this.f.reg, color: INK });
+        sl.forEach(l => { this.page.drawText(l, { x: M + 32, y: this.y - size, size, font: this.f.reg, color: INK }); this.y -= size + 3; });
+      });
+      this.y -= 2;
+    });
+    this.space(4);
+  }
+
+  checklist(items) {
+    items.forEach(([label, on]) => {
+      const lines = this.wrap(label, 9, CW - 16);
+      this.ensure(lines.length * 12 + 4);
+      this.box(M, this.y - 9, on);
+      lines.forEach(l => { this.page.drawText(l, { x: M + 14, y: this.y - 8, size: 9, font: this.f.reg, color: INK }); this.y -= 12; });
+      this.y -= 4;
+    });
+    this.space(2);
+  }
+
+  signature(image, who, date) {
+    const h = 58;
+    this.ensure(h + 6);
+    const half = CW / 2;
+    this.page.drawRectangle({ x: M, y: this.y - h, width: CW, height: h, color: ROW });
+    this.page.drawText('Signature:', { x: M + 5, y: this.y - 14, size: 9, font: this.f.reg, color: INK });
     if (image) {
-      const s = Math.min((w - 10) / image.width, 50 / image.height);
-      this.page.drawImage(image, { x: x + 5, y: this.y - 67, width: image.width * s, height: image.height * s });
-    } else {
-      this.page.drawText('Not signed', { x: x + 8, y: this.y - 45, size: 9, font: this.f.reg, color: SUB });
+      const s = Math.min((half - 70) / image.width, (h - 10) / image.height);
+      this.page.drawImage(image, { x: M + 55, y: this.y - h + 5, width: image.width * s, height: image.height * s });
     }
-    this.page.drawText(clean(`Name: ${name || '—'}`), { x: x + w + 16, y: this.y - 34, size: 9.5, font: this.f.reg, color: INK });
-    this.page.drawText(clean(`Date: ${date || '—'}`), { x: x + w + 16, y: this.y - 50, size: 9.5, font: this.f.reg, color: INK });
-    this.y -= 84;
+    if (who) this.page.drawText(who, { x: M + 55, y: this.y - h + 4, size: 7, font: this.f.reg, color: SUB });
+    this.page.drawText('Date:', { x: M + half + 5, y: this.y - 14, size: 9, font: this.f.reg, color: INK });
+    if (date) this.page.drawText(date, { x: M + half + 32, y: this.y - 14, size: 9.5, font: this.f.bold, color: VALUE });
+    this.y -= h + 10;
+  }
+
+  footnote(n, text) {
+    this.text(`${n} ${text}`, { size: 7.5, color: SUB, gap: 2 });
+    this.space(4);
   }
 }
 
 /**
- * @param job       row from installation_overview
- * @param formData  wizard state (as loaded by LoadInstallation)
- * @param evidence  job_evidence rows
- * @returns Uint8Array PDF bytes
+ * @returns {Promise<Uint8Array>} PDF bytes
  */
 export async function buildAssignmentFormPdf({ job, formData: fd, evidence = [] }) {
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`VEEC assignment record ${job.job_ref}`);
-  pdf.setSubject('Victorian Energy Upgrades – Activity 6 (Residential)');
-  pdf.setProducer('VEU Installation Portal');
-  pdf.setCreationDate(new Date());
-  const fonts = { reg: await pdf.embedFont(StandardFonts.Helvetica), bold: await pdf.embedFont(StandardFonts.HelveticaBold) };
-  const submitted = ['submitted', 'approved', 'paid'].includes(job.status);
-  const W = new Writer(pdf, fonts, {
-    jobRef: job.job_ref,
-    company: job.company_name || '',
-    watermark: submitted ? null : 'DRAFT – NOT SUBMITTED',
-  });
-
-  const isRes = (fd.premisesType || job.premises_type) === 'residential';
-  const scenarios = getScenarios(isRes);
-  const sig = kind => evidence.filter(e => e.kind === kind).slice(-1)[0];
-  const custSig = sig('customer_signature');
-  const instSig = sig('installer_signature');
-  const [custImg, instImg] = await Promise.all([
-    custSig ? fetchImage(pdf, custSig.file_url) : null,
-    instSig ? fetchImage(pdf, instSig.file_url) : null,
+  pdf.registerFontkit(fontkit);
+  const [reg, bold] = await Promise.all([
+    loadBytes(`${FONT_BASE}/LiberationSans-Regular.ttf`),
+    loadBytes(`${FONT_BASE}/LiberationSans-Bold.ttf`),
   ]);
-  const installDate = fd.installationDate ? formatDate(fd.installationDate) : '—';
+  const f = { reg: await pdf.embedFont(reg, { subset: true }), bold: await pdf.embedFont(bold, { subset: true }) };
+  const { fields: v, ticks, signatures } = buildA6Model({ job, formData: fd, evidence });
+  const on = i => !!ticks[i];
+  const ap = v.apName;
+  const submitted = ['submitted', 'approved', 'paid'].includes(job.status);
+
+  pdf.setTitle(`${T.A6_FORM_TITLE} – ${job.job_ref}`);
+  pdf.setAuthor(ap);
+  pdf.setSubject('Victorian Energy Upgrades – VEEC assignment form');
+  pdf.setProducer(`${ap} portal`);
+  pdf.setCreationDate(new Date());
+
+  const [instImg, custImg] = await Promise.all([
+    signatures.installer ? loadImage(pdf, signatures.installer.file_url) : null,
+    signatures.customer ? loadImage(pdf, signatures.customer.file_url) : null,
+  ]);
+  const D = new Doc(pdf, f, { watermark: submitted ? null : 'DRAFT – NOT SUBMITTED' });
+
+  // ── Accredited person header ────────────────────────────────────────────
+  D.text(ap, { size: 18, font: f.bold, color: rgb(0.12, 0.23, 0.34) });
+  D.text(v.apContact, { size: 8.5, color: SUB });
+  D.text(`${T.A6_FORM_TITLE}  ·  Job ${v.jobRef}`, { size: 8.5, color: SUB });
+  D.space(6);
 
   // ── Section 1 ───────────────────────────────────────────────────────────
-  W.section(1, 'Energy consumer and premises');
-  W.part('Part A – Energy consumer details');
-  W.fields([
-    ['Consumer name', [fd.firstName, fd.surname].filter(Boolean).join(' ')],
-    ['Phone', fd.clientPhone],
-    ['Email', fd.email],
-    ['Consumer type', isRes ? 'Residential' : 'Non-residential'],
-  ]);
-  W.part('Part B – Installation premises');
-  const bd = fd.buildingDates || {};
-  const ageDocs = [
-    ['Certificate of occupancy / final inspection', bd.certificateDateFiles, bd.certificateDate],
-    ['Final inspection notice / practical completion', bd.inspectionDateFiles, bd.inspectionDate],
-    ['Council building permit completion record', bd.handoverDateFiles, bd.handoverDate],
-    ['Statutory declaration', bd.statutoryDecDateFiles, bd.statutoryDecDate],
-  ].filter(([, files]) => (files || []).length);
-  W.fields([
-    ['Installation address', fd.installationAddress],
-    ['Premises type', isRes ? 'Residential' : 'Non-residential'],
-    ['Building older than 2 years', yesNo(fd.buildingAgeCheck)],
-    ['Building age evidence', ageDocs.map(([t, , d]) => `${t} (${d ? formatDate(d) : 'undated'})`).join('; ') || '—'],
-    ['Prior ducted installs / decommissioned', `${fd.ductedCount ?? 0} / ${fd.ductedDecomCount ?? 0}`],
-    ['Prior non-ducted installs / decommissioned', `${fd.nonDuctedCount ?? 0} / ${fd.nonDuctedDecomCount ?? 0}`],
-  ]);
+  D.heading('Section 1: Consumer rights information');
+  T.SECTION1(ap).forEach(p => { D.text(p, { size: 9 }); D.space(4); });
 
   // ── Section 2 ───────────────────────────────────────────────────────────
-  W.section(2, 'Decommissioning of existing heating / cooling');
-  W.part('Part A – Products decommissioned');
-  const decom = (fd.decommissionedProducts || []).filter(p => p.decommissionScenario || p.brand || p.model);
-  W.table(
-    ['Scenario', 'Brand', 'Model', 'Method', 'Removed for disposal', 'Ductwork replaced'],
-    decom.map(p => [
-      scenarios.find(s => s.id === p.decommissionScenario)?.title || p.decommissionScenario,
-      p.brand, p.model, p.decommissionMethod,
-      p.removed === false ? `No – ${p.notRemovedReason || ''}` : yesNo(p.removed),
-      p.ductReplacement === 'N/A' ? 'N/A' : yesNo(p.ductReplacement),
-    ]),
-    [0.26, 0.12, 0.13, 0.25, 0.12, 0.12]
-  );
-  W.fields([
-    ['Certificate of Electrical Safety required', yesNo(fd.COESRequired)],
-    ['VBA compliance certificate required', yesNo(fd.VBARequired)],
+  D.heading('Section 2: Installation details and installer declaration');
+  D.part('Part A: Installation details');
+  D.table('Installation details', [
+    { label: 'Installation address:', value: v.installAddress },
+    { label: 'Installation date:', value: v.installDate },
   ]);
-  W.part('Part B – Decommissioning declaration (installer)');
-  W.paragraph('The installer declares the products listed above were decommissioned in accordance with the Victorian Energy Upgrades specifications and disposed of as recorded.');
-  W.signature('Installer signature', instImg, instSig?.note, instSig ? formatDate(instSig.captured_at) : null);
+  const person = (title, p, licLabel) => D.table(title, [
+    { label: 'Name:', value: v[`${p}Name`] }, { label: 'Company name:', value: v[`${p}Company`] },
+    { label: 'Company address:', value: v[`${p}Address`] }, { label: 'Phone number:', value: v[`${p}Phone`] },
+    { label: licLabel, value: v[`${p}Licence`] },
+  ]);
+  person('Electrician details', 'elec', 'Electrician licence number:');
+  person('Licenced plumber details', 'lp', 'Plumbing licence number:');
+  person('Registered plumber details ¹', 'rp', 'Plumbing registration number:');
+  person('Refrigerant handling details', 'rh', 'Refrigerant handling licence number:');
+  D.footnote('¹', T.FOOTNOTE_REG_PLUMBER);
+
+  D.table('Decommissioning scenario and decommissioned product details', [
+    ...T.SCENARIOS.map(([id, label]) => ({ label: '', options: [[label, on(BOX.scenario[id])]], optionWidth: CW - 10 })),
+    { label: 'Brand:', value: v.decomBrand },
+    { label: 'Model:', value: v.decomModel },
+  ]);
+  D.table('Decommissioning and disposal details:', [
+    { label: 'Method used to decommission the product(s):', value: v.decomMethod },
+    { label: 'Was decommissioned product removed from the consumer’s premises for disposal?', options: [['Yes', on(BOX.removedYes)], ['No', on(BOX.removedNo)]] },
+    { label: 'Justification for why it was not safe or practical to remove the product (where product was not removed):', value: v.notRemovedReason },
+  ]);
+  D.table('Installed product details *', [
+    { label: 'Product type:', options: T.CATEGORIES.map(([c, l]) => [l, on(BOX.category[c])]), optionWidth: (CW * 0.48 - 10) / 1 },
+    { label: 'Brand:', value: v.prodBrand },
+    { label: 'Model:', value: v.prodModel },
+    { label: 'Serial number(s):', value: v.serials },
+    { label: 'Sum of the rated heating capacity (in kW) of all installed indoor units (for multi-split systems only):', value: v.sumHeat },
+    { label: 'Sum of the rated cooling capacity (in kW) of all installed indoor units (for multi-split systems only):', value: v.sumCool },
+    { label: 'Are all indoor units installed from the same original equipment manufacturer as the connected outdoor unit (for multi-split systems only)?', options: [['Yes', on(BOX.sameMfr.yes)], ['No', on(BOX.sameMfr.no)], ['N/A', on(BOX.sameMfr.na)]] },
+    { label: 'Was ductwork of decommissioned product replaced as part of installation of new product? (for replacement of ducted systems with ducted systems only)', options: [['Yes', on(BOX.ductwork.yes)], ['No', on(BOX.ductwork.no)], ['N/A', on(BOX.ductwork.na)]] },
+  ]);
+  D.text('Above information (as appropriate) to be recorded for each product installed as part of this assignment of rights', { size: 8.5, font: f.reg, color: SUB });
+  D.space(6);
+  D.table('Pre-installation and installation sizing details', [
+    { label: 'Area (m2) heated/cooled by baseline product – per product', options: T.AREAS.map(([k, l]) => [l, on(BOX.area[k])]), optionWidth: 82 },
+    { label: 'Do the product(s) installed match the recommended size in the Space Heating and Cooling Consumer Fact Sheet', options: [['Yes', on(BOX.matchYes)], ['No*', on(BOX.matchNo)]] },
+    { label: '*If ‘no’, please provide the reason why the recommended size system was not installed:', value: v.sizeReason },
+  ]);
+  D.table('Certificate details', [
+    { label: 'Is a VBA Compliance Certificate required for the work undertaken?', options: [['Yes', on(BOX.vbaReqYes)], ['No', on(BOX.vbaReqNo)]] },
+    { label: 'Is a Certificate of Electrical Safety required for the work undertaken?', options: [['Yes', on(BOX.coesReqYes)], ['No', on(BOX.coesReqNo)]] },
+    { label: 'Certificate of Electrical Safety number:', value: v.coesNo },
+    { label: 'VBA Compliance Certificate number:', value: v.vbaNo },
+  ]);
+  D.table('Form of benefit provided', [
+    { label: '', options: T.BENEFITS.map(b => [b === 'Other' ? `Other (please describe)${v.benefitOther ? `: ${v.benefitOther}` : ''}` : b, on(BOX.benefit[b])]) },
+    { label: 'Amount of benefit provided for assignment of certificates:', value: v.benefitAmount },
+  ]);
+  D.table('Co-payment details ²', [
+    { label: 'Price of installed product(s) including GST (before VEEC incentive): $', value: v.priceBefore },
+    { label: 'Consumer payment for installed product(s) including GST : $', value: v.consumerPayment },
+  ]);
+  D.footnote('²', T.FOOTNOTE_COPAYMENT);
+
+  D.part('Part B: Declaration by installer');
+  D.text('I declare that:');
+  D.space(2);
+  D.bullets(T.INSTALLER_DECLARATION);
+  D.signature(instImg, v.sig2Installer, v.date2Installer);
 
   // ── Section 3 ───────────────────────────────────────────────────────────
-  W.section(3, 'Installation of high-efficiency air conditioner');
-  W.part('Part A – Products installed');
-  const prods = (fd.installedProducts || []).filter(p => p.brand || p.model);
-  W.table(
-    ['Category', 'Brand', 'Model', 'Serial no.', 'Heat / cool kW', 'Configuration', 'Area served'],
-    prods.map(p => [
-      p.productCategory, p.brand, p.model, p.serialNo,
-      `${p.heatingCapacity ?? '—'} / ${p.coolingCapacity ?? '—'}`,
-      [p.productType, p.unitConfiguration].filter(Boolean).join(', '),
-      p.areaBucket ? `${p.areaBucket} m²` : '—',
-    ]),
-    [0.09, 0.12, 0.2, 0.17, 0.12, 0.18, 0.12]
-  );
-  W.fields([
-    ['Installation date', installDate],
-    ['Accredited person', fd.accredittedPerson],
-    ['Certificate of Electrical Safety no.', fd.COESNo || fd.coesCertificateNumber],
-    ['VBA compliance certificate no.', fd.VBAComplianceCertificateNo || fd.vbaCertificateNumber],
-  ]);
-  W.part('Part B – Tradespeople');
-  const trade = (role, k, licKey = 'LicenseNo') => [
-    role, fd[`${k}Name`], fd[`${k}CompanyName`], fd[`${k}${licKey}`], fd[`${k}Phone`],
-  ];
-  W.table(
-    ['Role', 'Name', 'Company', 'Licence / registration', 'Phone'],
-    [
-      trade('Licensed plumber', 'licencedPlumber'),
-      trade('Registered plumber', 'registeredPlumber', 'RegistrationNo'),
-      trade('Electrician', 'electrician'),
-      trade('Refrigerant handler', 'refrigerantHandler'),
-    ].filter(r => r[1]),
-    [0.2, 0.18, 0.28, 0.18, 0.16]
-  );
-  W.paragraph('The installer declares the installation was carried out by appropriately licensed persons in accordance with the Victorian Energy Upgrades specifications and all applicable laws, codes and standards.');
-  W.signature('Installer signature', instImg, instSig?.note, instSig ? formatDate(instSig.captured_at) : null);
+  D.heading('Section 3: Agreement between installer and consumer on scope of decommissioning work as part of installation');
+  D.text('As part of the installation of the new product(s), the installer will: (tick applicable box)');
+  D.space(4);
+  D.checklist([[T.SCOPE_REMOVAL[0], on(BOX.scopeRemove)], [T.SCOPE_REMOVAL[1], on(BOX.scopeLeave)]]);
+  D.text('As part of the installation of the new product(s), the installer will: (tick applicable box)');
+  D.space(4);
+  D.checklist(T.SCOPE_REPAIR.map(([k, l]) => [k === 'some' && v.repairDetails ? `${l}: ${v.repairDetails}` : l, on(BOX.repair[k])]));
+  D.part('Part A: Declaration by installer');
+  D.text('I declare that:');
+  D.space(2);
+  D.bullets(T.SECTION3_INSTALLER);
+  D.signature(instImg, v.sig3aInstaller, v.date3aInstaller);
+  D.part('Part B: Acknowledgement by consumer');
+  D.text('I acknowledge that:');
+  D.space(2);
+  D.bullets(T.SECTION3_CONSUMER);
+  D.signature(custImg, v.sig3bConsumer, v.date3bConsumer);
 
   // ── Section 4 ───────────────────────────────────────────────────────────
-  W.section(4, 'Assignment of VEECs and energy consumer declaration');
-  W.part('Part A – Benefit provided to the energy consumer');
-  W.fields([
-    ['Form of benefit', fd.typeOfBenefit === 'Other' ? `Other – ${fd.otherBenefit || ''}` : fd.typeOfBenefit],
-    ['Amount of benefit', fd.amountOfBenefit ? `$${Number(fd.amountOfBenefit).toLocaleString('en-AU')}` : '—'],
-    ['Consumer given VEU fact sheet / information', yesNo(fd.installerTasksDone)],
-    ['Post-installation documents provided', yesNo(fd.postInstallinfoGiven)],
+  D.heading('Section 4: Consumer details and declaration');
+  D.part('Part A: Consumer details');
+  D.table('Consumer details', [
+    { label: 'Name:', value: v.consumerName },
+    { label: 'Phone number:', value: v.consumerPhone },
+    { label: 'Email address:', value: v.consumerEmail },
+    ...T.CONSUMER_QUESTIONS.map(([k, l]) => ({ label: l, options: [['Yes', on(BOX[`${k}Yes`])], ['No', on(BOX[`${k}No`])]] })),
   ]);
-  W.part('Part B – Energy consumer declaration and assignment');
-  W.paragraph('The energy consumer declares the information in this form is true and correct, and assigns the right to create Victorian energy efficiency certificates for this activity to the accredited person named above in exchange for the benefit described.');
-  W.signature('Energy consumer signature', custImg, custSig?.note, custSig ? formatDate(custSig.captured_at) : null);
+  D.part('Part B: Declaration by consumer');
+  D.text('I declare that:');
+  D.space(2);
+  D.bullets(T.CONSUMER_DECLARATION(ap));
+  D.signature(custImg, v.sig4Consumer, v.date4Consumer);
 
-  // ── Evidence appendix ──────────────────────────────────────────────────
+  // ── Attachment: photo evidence ─────────────────────────────────────────
   const photos = evidence.filter(e => !e.kind.includes('signature'));
   if (photos.length) {
-    W.newPage();
-    W.section('A', 'Photo evidence (timestamped, geotagged)');
-    const colW = (A4[0] - 2 * M - 16) / 2;
+    D.newPage();
+    D.text('Attachment – installation photo evidence', { size: 13, font: f.bold });
+    D.text('Supporting evidence captured on site (timestamped and geotagged). Not part of the assignment form.', { size: 8.5, color: SUB });
+    D.space(8);
+    const colW = (CW - 16) / 2;
     for (let i = 0; i < photos.length; i += 2) {
-      W.ensure(200);
+      D.ensure(196);
       for (let j = 0; j < 2 && i + j < photos.length; j++) {
         const e = photos[i + j];
-        const img = await fetchImage(pdf, e.file_url);
+        const img = await loadImage(pdf, e.file_url);
         const x = M + j * (colW + 16);
-        const boxH = 150;
         if (img) {
-          const s = Math.min(colW / img.width, boxH / img.height);
-          W.page.drawImage(img, { x, y: W.y - boxH, width: img.width * s, height: img.height * s });
-        } else {
-          W.page.drawRectangle({ x, y: W.y - boxH, width: colW, height: boxH, borderColor: LINE, borderWidth: 1 });
+          const s = Math.min(colW / img.width, 150 / img.height);
+          D.page.drawImage(img, { x, y: D.y - 150, width: img.width * s, height: img.height * s });
         }
-        W.page.drawText(clean(evidenceLabel(e.kind)), { x, y: W.y - boxH - 12, size: 8.5, font: fonts.bold, color: INK });
+        D.page.drawText(evidenceLabel(e.kind), { x, y: D.y - 162, size: 8.5, font: f.bold, color: INK });
         const meta = `${formatDate(e.captured_at, true)}${e.latitude != null ? `  ·  GPS ${e.latitude.toFixed(5)}, ${e.longitude.toFixed(5)}` : ''}`;
-        W.page.drawText(clean(meta), { x, y: W.y - boxH - 24, size: 7.5, font: fonts.reg, color: SUB });
+        D.page.drawText(meta, { x, y: D.y - 173, size: 7.5, font: f.reg, color: SUB });
       }
-      W.y -= 190;
+      D.y -= 188;
     }
   }
 
   // footer on every page
   const pages = pdf.getPages();
-  const stamp = `Generated ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' })} by VEU Installation Portal  ·  status: ${job.status}`;
   pages.forEach((pg, i) => {
-    pg.drawLine({ start: { x: M, y: 40 }, end: { x: A4[0] - M, y: 40 }, thickness: 0.6, color: LINE });
-    pg.drawText(clean(stamp), { x: M, y: 28, size: 7, font: fonts.reg, color: SUB });
-    pg.drawText(`Page ${i + 1} of ${pages.length}`, { x: A4[0] - M - 50, y: 28, size: 7, font: fonts.reg, color: SUB });
+    pg.drawText(`${ap}  ·  Job ${v.jobRef}  ·  ${T.A6_FORM_TITLE}`, { x: M, y: 30, size: 7, font: f.reg, color: SUB });
+    pg.drawText(`Page ${i + 1} of ${pages.length}`, { x: A4[0] - M - 48, y: 30, size: 7, font: f.reg, color: SUB });
   });
-
   return pdf.save();
 }
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthProvider';
 import { supabase } from '../../relationship/supabaseConfig';
 import { appUrl } from '../../config/env';
+import { BRAND } from '../../config/brand';
 import '../../styles/portal.css';
 
 const MESSAGES = {
@@ -109,8 +110,8 @@ export default function LoginPage() {
   return (
     <div className="login-shell">
       <div className="login-card">
-        <h1>VEU Installation Portal</h1>
-        <p className="sub">Staff sign in</p>
+        <h1>{BRAND.name}</h1>
+        <p className="sub">{BRAND.tagline} · staff sign in</p>
         <div className="seg" role="tablist">
           <button role="tab" aria-selected={mode === 'password'} className={mode === 'password' ? 'on' : ''}
             onClick={() => { setMode('password'); setError(''); setInfo(''); }}>Password</button>

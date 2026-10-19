@@ -1,4 +1,4 @@
-# Installation Reporting Portal
+# ASAP Rebates – VEU Installation Portal
 
 Staff portal for Victorian Energy Upgrades (VEU) installers. It covers Activity 6 (high-efficiency air-conditioners): capturing the customer, premises, building-age evidence, prior installations, decommissioned and new products, tradespeople, field photos and signatures. It then moves each job through review to VEEC submission and payment.
 
@@ -14,9 +14,19 @@ Demo accounts (fictional, password `VeuDemo#2026`):
 | `jack.taylor@example.com` | Staff / installer | Northside Climate Solutions |
 | `priya.nair@example.com` | Company admin | Bayside Air Co. (separate company – shows data isolation) |
 
-The showcase job **Alex Morgan – 17 Banksia Street** is complete and waiting for review: open it, *Export assignment form*,
+The showcase job **Alex Morgan – 17 Banksia Street** is complete and waiting for review: open it, download the **Assignment form (PDF)** or **Word** version,
 *Mark as submitted* (the PDF downloads automatically), then *↩ Revert last status change* to run the demo again.
 Global admins also get **↺ Reset demo data** on the dashboard.
+
+## VEEC assignment form
+
+Exports follow the ESC **VEEC Assignment Form Template: Space Heating and Cooling (Activity 6) – Residential Premises, V1.4 (12 Dec 2024)**:
+
+- **Word** – the official template itself (`public/forms/a6-residential-template.docx`), filled in the browser. Built from the ESC file by
+  `dev/forms/build_a6_template.py`: removes the instructions-for-APs page, replaces ESC branding with the accredited person's, and inserts
+  placeholders for every field and tick box. Declarations are unchanged, as the ESC requires.
+- **PDF** – the same sections, wording, tick boxes and e-signatures, plus a photo-evidence attachment. Downloads automatically when a job is marked submitted.
+- Accredited-person name and contact line: `src/config/brand.js`.
 
 ## Security
 

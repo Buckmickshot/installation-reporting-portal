@@ -11,6 +11,7 @@ import EvidencePanel from './EvidencePanel';
 import { readinessChecklist } from '../../utils/readiness';
 import { STATUS_BY_VALUE, statusLabel, availableActions, isEditable, formatDate } from '../../utils/jobStatus';
 import { buildAssignmentFormPdf, downloadBytes } from '../../forms/assignmentFormPdf';
+import { buildA6Docx } from '../../forms/a6Docx';
 import '../../styles/portal.css';
 
 export function useJob(id) {
@@ -116,6 +117,19 @@ export default function JobOverview() {
     }
   };
 
+  const exportDocx = async () => {
+    setExporting(true);
+    try {
+      const bytes = await buildA6Docx({ job, formData, evidence });
+      downloadBytes(bytes, `${job.job_ref}-VEEC-assignment-form.docx`, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    } catch (e) {
+      console.error(e);
+      alert('Could not create the Word document: ' + e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const runAction = async (action, msg) => {
     setBusy(true);
     const { error: err } = await supabase.rpc('fn_set_job_status', { _installation: id, _status: action.to, _message: msg || null });
@@ -186,7 +200,8 @@ export default function JobOverview() {
           <h1 className="mono" style={{ fontSize: '1.3rem' }}>{job.job_ref}</h1>
           <span className={`pill ${tone}`}>{statusLabel(job.status)}</span>
           <div className="actions">
-            <button className="btn" onClick={() => exportPdf()} disabled={exporting}>{exporting ? 'Creating PDF…' : '📄 Export assignment form'}</button>
+            <button className="btn" onClick={() => exportPdf()} disabled={exporting} title="Official ESC Activity 6 residential assignment form, filled in">{exporting ? 'Creating…' : '📄 Assignment form (PDF)'}</button>
+            <button className="btn" onClick={exportDocx} disabled={exporting} title="Same form as an editable Word document">Word</button>
             <Link className="btn" to={`/jobs/${id}/field`}>📱 Field mode</Link>
             <Link className="btn" to={wizardPath(job)}>{editable ? 'Edit job form' : 'View job form'}</Link>
             {['draft', 'cancelled'].includes(job.status) && (isAdmin || job.user_id === user.id) && (
