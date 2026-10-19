@@ -1,0 +1,52 @@
+name: Deploy portal to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      PUBLIC_URL: /installation-reporting-portal
+      # Public client settings (the anon key is designed to be public; access is enforced by row-level security)
+      REACT_APP_SUPABASE_URL: https://cdeoehchluihtlrzcvru.supabase.co
+      REACT_APP_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkZW9laGNobHVpaHRscnpjdnJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDExMzE1ODksImV4cCI6MjA1NjcwNzU4OX0.Ig6wtWjjipKa-wq5I-6BIoIzQ3U1UfcuWizurKUIWuc
+      REACT_APP_GEOSCAPE_API_KEY: ${{ secrets.GEOSCAPE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test:ci
+      - run: npm run build
+      # SPA fallback so deep links like /jobs/123 work on GitHub Pages
+      - run: cp build/index.html build/404.html && touch build/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

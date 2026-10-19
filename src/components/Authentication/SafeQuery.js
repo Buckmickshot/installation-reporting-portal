@@ -12,14 +12,23 @@
  * If an error is returned, the function has already shown an alert
  * (and possibly signed the user out); callers can usually just `return`.
  */
+// Requests cancelled because the page is navigating away are not real failures.
+let leavingPage = false;
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => { leavingPage = true; });
+  window.addEventListener('pageshow', () => { leavingPage = false; });
+}
+
 export async function safeQuery(queryFn, { signOut, navigate, on403 } = {}) {
   try {
     const { data, error, status } = await queryFn();
 
     /* 1) Network / client-side error (no HTTP status) */
     if (error && !status) {
-      console.error('Network/client error:', error);
-      alert('Network problem. Check your connection and try again.');
+      if (!leavingPage) {
+        console.error('Network/client error:', error);
+        alert('Network problem. Check your connection and try again.');
+      }
       return { data: null, error };
     }
 

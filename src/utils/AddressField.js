@@ -4,200 +4,129 @@ import { useFormData } from '../contexts/FormDataContext';
 import { env } from '../config/env';
 import '../components/jobCreation/JobScreen.css';
 
-export default function AddressField({
-  label,
-  value,
-  onChange,
-  section,
-  verified = false,
-}) {
-  const { updateFormData, updateInvalidFields } = useFormData();
+/**
+ * Address input with Geoscape (PSMA) predictive lookup.
+ *
+ * onChange(addressString, suggestion) fires when an address is committed:
+ *   • with a Geoscape key  → only when a suggestion is picked (verified address)
+ *   • without a key        → on blur / Enter with whatever was typed (manual entry)
+ * It fires with '' when the field is cleared or edited away from a committed value.
+ */
+export default function AddressField({ label, value, onChange, section, verified = false }) {
+  const { updateInvalidFields } = useFormData();
+  const lookupEnabled = Boolean(env.geoscapeApiKey);
+
   const [input, setInput] = useState(value || '');
   const [debouncedInput] = useDebounce(input, 300);
   const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [open, setOpen] = useState(false);
   const [touched, setTouched] = useState(false);
-  const [isValid, setIsValid] = useState(false);
-  const [isFromVerifiedInput, setIsFromVerifiedInput] = useState(verified); // ✅ new
+  const committedRef = useRef(value || '');
 
-  const lastSelectedRef = useRef('');
-  const latestSuggestionsRef = useRef([]);
-
+  // keep in sync when the parent value changes (e.g. job resumed / autofill)
   useEffect(() => {
-    const clean = value?.trim() || '';
+    const clean = (typeof value === 'string' ? value : value?.address || '').trim();
     setInput(clean);
-    if (verified && clean) {
-      setIsValid(true);
-      lastSelectedRef.current = clean;
-      setTouched(true);
-      setIsFromVerifiedInput(true); // ✅ prevent fetch/suggestions
-    } else {
-      setIsFromVerifiedInput(false);
-    }
-  }, [value, verified]);
+    committedRef.current = clean;
+  }, [value]);
 
   useEffect(() => {
-    if (
-      !debouncedInput ||
-      debouncedInput.length < 4 ||
-      debouncedInput === lastSelectedRef.current ||
-      isFromVerifiedInput // ✅ skip if verified
-    ) {
+    if (!lookupEnabled || debouncedInput.length < 4 || debouncedInput === committedRef.current) {
       setSuggestions([]);
-      latestSuggestionsRef.current = [];
       return;
     }
-
-    if (!env.geoscapeApiKey) {
-      setSuggestions([]);
-      latestSuggestionsRef.current = [];
-      return;
-    }
-
+    const ctrl = new AbortController();
     fetch(
-      `https://api.psma.com.au/v1/predictive/address?query=${encodeURIComponent(
-        debouncedInput
-      )}&maxNumberOfResults=10`,
-      {
-        headers: {
-          Authorization: env.geoscapeApiKey,
-          Accept: 'application/json',
-        },
-      }
+      `https://api.psma.com.au/v1/predictive/address?query=${encodeURIComponent(debouncedInput)}&maxNumberOfResults=10`,
+      { headers: { Authorization: env.geoscapeApiKey, Accept: 'application/json' }, signal: ctrl.signal }
     )
       .then(res => res.json())
       .then(data => {
-        const results = data.suggest || [];
-        setSuggestions(results);
-        latestSuggestionsRef.current = results;
+        setSuggestions(data.suggest || []);
+        setOpen(true);
       })
       .catch(err => {
-        console.error('address fetch error', err);
-        setSuggestions([]);
-        latestSuggestionsRef.current = [];
+        if (err.name !== 'AbortError') setSuggestions([]);
       });
-  }, [debouncedInput, isFromVerifiedInput]); // ✅ added dependency
-
-  useEffect(() => {
-    if (suggestions.length > 0 && !isFromVerifiedInput) {
-      setShowSuggestions(true); // ✅ suppress if verified
-    }
-  }, [suggestions, isFromVerifiedInput]);
+    return () => ctrl.abort();
+  }, [debouncedInput, lookupEnabled]);
 
   const fieldId = `${section}-${label}`.replace(/\s+/g, '').toLowerCase();
+  const isCommitted = input.trim() !== '' && input.trim() === committedRef.current;
+  const showError = lookupEnabled && touched && input.trim() !== '' && !isCommitted;
 
-  const handleSelect = suggestion => {
-    const fullAddress = suggestion.address;
-    lastSelectedRef.current = fullAddress;
-    setInput(fullAddress);
-    setIsValid(true);
-    setTouched(true);
-    setIsFromVerifiedInput(true); // ✅ mark verified after selection
-    updateInvalidFields(section, label, null);
-    onChange(suggestion); // ✅ passes the suggestion to parent
+  const commit = (address, suggestion = { address }) => {
+    committedRef.current = address;
+    setInput(address);
     setSuggestions([]);
-    setShowSuggestions(false);
+    setOpen(false);
+    updateInvalidFields(section, label, null);
+    onChange(address, suggestion);
   };
 
   const handleTyping = e => {
     const val = e.target.value;
     setInput(val);
-    setShowSuggestions(true);
-
-    if (val.trim() === '') {
-      lastSelectedRef.current = '';
-      setIsValid(false);
-      setIsFromVerifiedInput(false);
-      updateInvalidFields(section, label, null);
-      updateFormData({ installationAddress: '' });
-      return;
-    }
-
-    lastSelectedRef.current = '';
-    setIsValid(false);
-    setIsFromVerifiedInput(false); // ✅ not from verified anymore
-    updateFormData({ installationAddress: '' }); // ✅ clear verified address
-  };
-
-  const handleValidation = () => {
-    setTouched(true);
-    const trimmed = input.trim();
-
-    if (!trimmed) {
-      setIsValid(false);
-      lastSelectedRef.current = '';
-      updateInvalidFields(section, label, null);
-      return;
-    }
-
-    if (trimmed === lastSelectedRef.current) {
-      setIsValid(true);
-      updateInvalidFields(section, label, null);
-      return;
-    }
-
-    const matched = latestSuggestionsRef.current.some(
-      s => s.address === trimmed
-    );
-
-    setIsValid(matched);
-    updateInvalidFields(section, label, matched ? null : 'Invalid address');
-  };
-
-  const handleKeyDown = e => {
-    if (e.key === 'Enter') {
-      handleValidation();
-      setShowSuggestions(false);
+    if (committedRef.current) {
+      committedRef.current = '';
+      onChange('', null);
     }
   };
+
+  const handleBlur = () =>
+    setTimeout(() => {
+      setOpen(false);
+      setTouched(true);
+      const trimmed = input.trim();
+      if (!trimmed) {
+        updateInvalidFields(section, label, null);
+        return;
+      }
+      if (trimmed === committedRef.current) return;
+      if (!lookupEnabled) return commit(trimmed);
+      const match = suggestions.find(s => s.address === trimmed);
+      if (match) commit(match.address, match);
+      else updateInvalidFields(section, label, 'Invalid address');
+    }, 150);
 
   return (
     <div className="field-group" id={fieldId}>
       <label className="field-label">
         {label}
-        <span
-          className={`asterisk ${!input || (!isValid && touched) ? 'visible' : ''
-            }`}
-        >
-          *
-        </span>
+        <span className={`asterisk ${!input || showError ? 'visible' : ''}`}>*</span>
       </label>
       <input
         type="text"
         className="field-input"
         value={input}
-        placeholder={label}
+        placeholder={lookupEnabled ? 'Start typing an address…' : 'Street, suburb, state, postcode'}
         onChange={handleTyping}
-        onKeyDown={handleKeyDown}
-        onFocus={() => {
-          if (!isFromVerifiedInput && suggestions.length > 0) {
-            setShowSuggestions(true); // ✅ suppress if verified
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
           }
         }}
-        onBlur={() =>
-          setTimeout(() => {
-            setShowSuggestions(false);
-            handleValidation();
-          }, 150)
-        }
+        onFocus={() => suggestions.length > 0 && setOpen(true)}
+        onBlur={handleBlur}
+        autoComplete="off"
       />
 
-      {!isValid && touched && input.length > 0 && (
-        <p
-          style={{
-            color: 'red',
-            fontSize: '0.875rem',
-            marginTop: '0.25rem',
-          }}
-        >
+      {showError && (
+        <p style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.25rem' }}>
           Please select a valid address from the suggestions.
         </p>
       )}
+      {!lookupEnabled && verified !== undefined && (
+        <p style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+          Address lookup is off (no Geoscape key) — type the full address.
+        </p>
+      )}
 
-      {showSuggestions && suggestions.length > 0 && (
+      {open && suggestions.length > 0 && (
         <ul className="address-suggestions">
           {suggestions.map((s, i) => (
-            <li key={i} onMouseDown={() => handleSelect(s)}>
+            <li key={i} onMouseDown={() => commit(s.address, s)}>
               {s.address}
             </li>
           ))}

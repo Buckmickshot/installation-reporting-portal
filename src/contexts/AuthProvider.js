@@ -1,130 +1,150 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../relationship/supabaseConfig'
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { supabase } from '../relationship/supabaseConfig';
 
-const AuthContext = createContext()
+const AuthContext = createContext();
+
+/** Does this session still need a second factor (TOTP) before data is available? */
+async function needsMfa() {
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error || !data) return false;
+  return data.nextLevel === 'aal2' && data.currentLevel !== 'aal2';
+}
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [company, setCompany] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [authError, setAuthError] = useState(null)
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [company, setCompany] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
+  const [mfaPending, setMfaPending] = useState(false);
+  const loadingRef = useRef(null);
 
-  async function fetchProfileAndCompany(sessionUser) {
-    const userId = sessionUser?.id
-    if (!userId) {
-      setUser(null)
-      setProfile(null)
-      setCompany(null)
-      setAuthError('no-session')
-      return 'no-session'
-    }
+  const clear = useCallback((reason = null) => {
+    setUser(null);
+    setProfile(null);
+    setCompany(null);
+    setAuthError(reason);
+  }, []);
 
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle()
+  /** Resolves the signed-in user's profile + company. Returns an error code or null. */
+  const hydrate = useCallback(
+    async sessionUser => {
+      if (!sessionUser) {
+        clear('no-session');
+        return 'no-session';
+      }
+      if (await needsMfa()) {
+        setMfaPending(true);
+        clear(null);
+        return 'mfa-required';
+      }
+      setMfaPending(false);
 
-    if (profileError || !profileData) {
-      setUser(null)
-      setProfile(null)
-      setCompany(null)
-      setAuthError('profile-fetch-failed')
-      return 'profile-fetch-failed'
-    }
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', sessionUser.id)
+        .maybeSingle();
+      if (profileError || !profileData) {
+        clear('profile-fetch-failed');
+        return 'profile-fetch-failed';
+      }
+      if (!profileData.active) {
+        clear('user-inactive');
+        return 'user-inactive';
+      }
+      const { data: companyData, error: companyError } = await supabase
+        .from('current_company_versions')
+        .select('*')
+        .eq('company_id', profileData.company_id)
+        .maybeSingle();
+      if (companyError || !companyData || companyData.company_active === false) {
+        clear('company-inactive');
+        return 'company-inactive';
+      }
+      setUser(sessionUser);
+      setProfile(profileData);
+      setCompany(companyData);
+      setAuthError(null);
+      return null;
+    },
+    [clear]
+  );
 
-    if (!profileData.active) {
-      setUser(null)
-      setProfile(null)
-      setCompany(null)
-      setAuthError('user-inactive')
-      return 'user-inactive'
-    }
-
-    const { data: companyData, error: companyError } = await supabase
-      .from('current_company_versions')
-      .select('*')
-      .eq('company_id', profileData.company_id)
-      .maybeSingle()
-
-    if (companyError || !companyData || companyData.active === false) {
-      setUser(null)
-      setProfile(null)
-      setCompany(null)
-      setAuthError('company-inactive')
-      return 'company-inactive'
-    }
-
-    // ✅ All good
-    setUser(sessionUser)
-    setProfile(profileData)
-    setCompany(companyData)
-    setAuthError(null)
-    return null
-  }
+  // serialise hydrations so auth events don't race each other
+  const hydrateOnce = useCallback(
+    sessionUser => {
+      const run = (loadingRef.current || Promise.resolve()).then(() => hydrate(sessionUser));
+      loadingRef.current = run.catch(() => {});
+      return run;
+    },
+    [hydrate]
+  );
 
   useEffect(() => {
-    const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const sessionUser = session?.user ?? null
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) await hydrateOnce(session.user);
+      else clear(null);
+      setLoading(false);
+    })();
 
-      if (sessionUser) {
-        await fetchProfileAndCompany(sessionUser)
-      } else {
-        setUser(null)
-        setProfile(null)
-        setCompany(null)
-        setAuthError(null)
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        setMfaPending(false);
+        clear(null);
+        return;
       }
-
-      setLoading(false)
-    }
-
-    initSession()
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        const newUser = session?.user ?? null;
-        if (newUser) {
-          fetchProfileAndCompany(newUser);
-        } else {
-          setUser(null); setProfile(null); setCompany(null); setAuthError(null);
-        }
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'MFA_CHALLENGE_VERIFIED') {
+        // let supabase-js finish its own work before querying
+        setTimeout(() => hydrateOnce(session.user), 0);
       }
-    );
-
-    return () => {
-      listener.subscription.unsubscribe()
-    }
-  }, []) // ✅ Only run once on mount
+    });
+    return () => listener.subscription.unsubscribe();
+  }, [clear, hydrateOnce]);
 
   const signIn = async (email, password) => {
-    const result = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data?.session?.user) return { error: 'invalid-credentials' };
+    return { error: await hydrateOnce(data.session.user) };
+  };
 
-    if (result.data?.session?.user) {
-      const inactiveReason = await fetchProfileAndCompany(result.data.session.user)
-      return { error: inactiveReason || result.error }
-    }
+  /** Email one-time code sign-in (no password). */
+  const sendEmailCode = async email =>
+    supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
 
-    return { error: result.error?.message || 'invalid-credentials' }
-  }
+  const verifyEmailCode = async (email, token) => {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+    if (error || !data?.session?.user) return { error: error?.message || 'invalid-code' };
+    return { error: await hydrateOnce(data.session.user) };
+  };
 
-  const signOut = () => {
-    setUser(null)
-    setProfile(null)
-    setCompany(null)
-    setAuthError(null)
-    return supabase.auth.signOut()
-  }
+  /** Complete the TOTP second factor for the current session. */
+  const verifyMfa = async code => {
+    const { data: factors, error: fErr } = await supabase.auth.mfa.listFactors();
+    const factor = factors?.totp?.find(f => f.status === 'verified');
+    if (fErr || !factor) return { error: 'No authenticator app is set up for this account.' };
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+    if (error) return { error: 'That code is not valid. Check the time on your phone and try again.' };
+    const { data: { user: u } } = await supabase.auth.getUser();
+    return { error: await hydrateOnce(u) };
+  };
+
+  const signOut = async () => {
+    setMfaPending(false);
+    clear(null);
+    return supabase.auth.signOut();
+  };
 
   return (
-    <AuthContext.Provider value={{ user, profile, company, loading, signIn, signOut, authError }}>
+    <AuthContext.Provider
+      value={{ user, profile, company, loading, authError, mfaPending, signIn, signOut, sendEmailCode, verifyEmailCode, verifyMfa }}
+    >
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth() {
-  return useContext(AuthContext)
+  return useContext(AuthContext);
 }

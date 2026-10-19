@@ -1,30 +1,29 @@
 // src/components/jobCreation/JobLayout.js
-import React from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
 import TopBarNavigator from './TopBarNavigator';
-import { useEffect } from 'react';
+import { useFormData } from '../../contexts/FormDataContext';
 
 function usePreventPageUnload(shouldPrevent = true) {
   useEffect(() => {
-    if (!shouldPrevent) return
-
-    const handler = (e) => {
-      // Standard message is ignored by most modern browsers,
-      // but returning any string triggers the prompt.
-      e.preventDefault()
-      e.returnValue = ''
-      return ''
-    }
-
-    window.addEventListener('beforeunload', handler)
-    return () => {
-      window.removeEventListener('beforeunload', handler)
-    }
-  }, [shouldPrevent])
+    if (!shouldPrevent) return;
+    const handler = e => {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [shouldPrevent]);
 }
 
 export default function JobLayout() {
-  usePreventPageUnload()
+  const { formData } = useFormData();
+  usePreventPageUnload(Boolean(formData.installationId));
+
+  // Form state lives in memory; after a page refresh there is no job loaded.
+  if (!formData.installationId) return <Navigate to="/" replace />;
+
   return (
     <>
       <TopBarNavigator />
