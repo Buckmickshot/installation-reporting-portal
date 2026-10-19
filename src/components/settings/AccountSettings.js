@@ -1,6 +1,6 @@
 // Account settings: profile, password, two-factor authentication, data protection.
 import React, { useCallback, useEffect, useState } from 'react';
-import { supabase, createEphemeralClient } from '../../relationship/supabaseConfig';
+import { supabase } from '../../relationship/supabaseConfig';
 import { useAuth } from '../../contexts/AuthProvider';
 import AppHeader from '../layout/AppHeader';
 import { PasswordInput, PasswordRules } from '../auth/AuthUi';
@@ -59,28 +59,55 @@ function ProfileForm() {
   );
 }
 
+const maskEmail = e => (e || '').replace(/^(.)(.*)(@.*)$/, (m, a, mid, d) => a + '•'.repeat(Math.min(mid.length, 6)) + d);
+
+/** Change password: prove it's you (authenticator code, or a code emailed to you), then set a new one. */
 function PasswordForm() {
   const { user } = useAuth();
-  const [current, setCurrent] = useState('');
+  const [step, setStep] = useState('idle'); // idle | verify | new | done
+  const [method, setMethod] = useState(null); // 'totp' | 'email'
+  const [factor, setFactor] = useState(null);
+  const [emailSent, setEmailSent] = useState(false);
+  const [code, setCode] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const save = async e => {
-    e.preventDefault();
+  const reset = () => { setStep('idle'); setMethod(null); setEmailSent(false); setCode(''); setNext(''); setConfirm(''); };
+
+  const start = async () => {
     setMsg(null);
-    if (!isStrongPassword(next)) return setMsg({ kind: 'error', text: 'Your new password doesn’t meet the requirements.' });
-    if (next !== confirm) return setMsg({ kind: 'error', text: 'New passwords don’t match.' });
+    const { data } = await supabase.auth.mfa.listFactors();
+    const f = (data?.totp || []).find(x => x.status === 'verified');
+    setFactor(f || null);
+    setMethod(f ? 'totp' : 'email');
+    setStep('verify');
+  };
+
+  const sendEmail = async () => {
     setBusy(true);
+    setMsg(null);
+    const { error } = await supabase.auth.reauthenticate();
+    setBusy(false);
+    if (error) return setMsg({ kind: 'error', text: authErrorMessage(error) });
+    setEmailSent(true);
+    setMsg({ kind: 'ok', text: `We sent a 6-digit code to ${maskEmail(user?.email)}. It expires in 15 minutes.` });
+  };
+
+  const verify = async e => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
     try {
-      // confirm the current password without disturbing this session
-      const { error: checkErr } = await createEphemeralClient().auth.signInWithPassword({ email: user.email, password: current });
-      if (checkErr) throw new Error('Your current password is incorrect.');
-      const { error } = await supabase.auth.updateUser({ password: next });
-      if (error) throw new Error(authErrorMessage(error));
-      setCurrent(''); setNext(''); setConfirm('');
-      setMsg({ kind: 'ok', text: 'Password updated.' });
+      if (method === 'totp') {
+        const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.trim() });
+        if (error) throw new Error('That code isn’t valid. Check your authenticator app and try again.');
+      } else {
+        const { data, error } = await supabase.rpc('fn_check_reauth_code', { _code: code.trim() });
+        if (error || !data) throw new Error('That code is incorrect or has expired. Check the email or send a new code.');
+      }
+      setStep('new');
     } catch (err) {
       setMsg({ kind: 'error', text: err.message });
     } finally {
@@ -88,15 +115,77 @@ function PasswordForm() {
     }
   };
 
+  const save = async e => {
+    e.preventDefault();
+    setMsg(null);
+    if (!isStrongPassword(next)) return setMsg({ kind: 'error', text: 'Your new password doesn’t meet the requirements.' });
+    if (next !== confirm) return setMsg({ kind: 'error', text: 'New passwords don’t match.' });
+    setBusy(true);
+    const { error } = await supabase.rpc('fn_change_password', { _password: next, _code: method === 'email' ? code.trim() : null });
+    setBusy(false);
+    if (error) {
+      const text = (error.message || '').replace(/^.*?exception:\s*/i, '');
+      if (/verify|code/i.test(text)) { setStep('verify'); setCode(''); }
+      return setMsg({ kind: 'error', text });
+    }
+    reset();
+    setStep('done');
+    setMsg({ kind: 'ok', text: 'Password changed. Any other devices have been signed out.' });
+  };
+
+  if (step === 'idle' || step === 'done') {
+    return (
+      <div className="settings-form">
+        <Status msg={msg} />
+        <div className="mfa-row">
+          <div><b>Password</b><div className="sub">You’ll confirm it’s you with a code before choosing a new password.</div></div>
+        </div>
+        <div><button className="btn primary" onClick={start}>Change password</button></div>
+      </div>
+    );
+  }
+
+  if (step === 'verify') {
+    return (
+      <form onSubmit={verify} className="settings-form auth-like">
+        <Status msg={msg} />
+        <div className="pw-step"><span className="step-no">1</span><b>Confirm it’s you</b></div>
+        {method === 'totp' ? (
+          <p className="sub" style={{ margin: 0 }}>Enter the 6-digit code from your authenticator app.</p>
+        ) : emailSent ? (
+          <p className="sub" style={{ margin: 0 }}>Enter the 6-digit code we emailed to {maskEmail(user?.email)}.</p>
+        ) : (
+          <p className="sub" style={{ margin: 0 }}>We’ll email a 6-digit code to {maskEmail(user?.email)}.</p>
+        )}
+        {(method === 'totp' || emailSent) && (
+          <input className="input auth-otp" inputMode="numeric" maxLength={6} autoComplete="one-time-code" autoFocus
+            value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} placeholder="000000" aria-label="6-digit code" />
+        )}
+        <div className="capture-row">
+          {method === 'email' && !emailSent
+            ? <button type="button" className="btn primary" onClick={sendEmail} disabled={busy}>{busy ? 'Sending…' : 'Email me a code'}</button>
+            : <button className="btn primary" disabled={busy || code.length !== 6}>{busy ? 'Checking…' : 'Continue'}</button>}
+          <button type="button" className="btn ghost" onClick={() => { reset(); setMsg(null); }}>Cancel</button>
+        </div>
+        {method === 'totp' && <button type="button" className="linklike" onClick={() => { setMethod('email'); setCode(''); setMsg(null); }}>Can’t use your app? Email me a code instead</button>}
+        {method === 'email' && emailSent && <button type="button" className="linklike" onClick={sendEmail} disabled={busy}>Send a new code</button>}
+        {method === 'email' && factor && <button type="button" className="linklike" onClick={() => { setMethod('totp'); setCode(''); setMsg(null); }}>Use my authenticator app instead</button>}
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={save} className="settings-form auth-like">
       <Status msg={msg} />
-      <PasswordInput label="Current password" autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} />
-      <PasswordInput label="New password" autoComplete="new-password" value={next} onChange={e => setNext(e.target.value)} />
+      <div className="pw-step"><span className="step-no done">✓</span><b>Verified</b><span className="step-no">2</span><b>Choose a new password</b></div>
+      <PasswordInput label="New password" autoComplete="new-password" value={next} onChange={e => setNext(e.target.value)} autoFocus />
       <PasswordRules password={next} />
       <PasswordInput label="Confirm new password" autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)}
         error={confirm && next !== confirm ? 'Passwords don’t match.' : ''} />
-      <div><button className="btn primary" disabled={busy || !current || !next || !confirm}>{busy ? 'Updating…' : 'Update password'}</button></div>
+      <div className="capture-row">
+        <button className="btn primary" disabled={busy || !next || !confirm}>{busy ? 'Saving…' : 'Change password'}</button>
+        <button type="button" className="btn ghost" onClick={() => { reset(); setMsg(null); }}>Cancel</button>
+      </div>
     </form>
   );
 }

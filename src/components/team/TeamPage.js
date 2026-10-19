@@ -15,11 +15,12 @@ import '../../styles/portal.css';
 import '../../styles/auth.css';
 
 const ROLES = [
-  { value: 'staff', label: 'Staff', hint: 'Create, edit and view jobs. Can change their own password and two-factor.' },
+  { value: 'worker', label: 'Worker', hint: 'Field installer. Sees only jobs allocated to them; uploads photos and signatures. Can’t edit the job form.' },
+  { value: 'staff', label: 'Staff', hint: 'Office staff. Create, edit and view all company jobs.' },
   { value: 'admin', label: 'Admin', hint: 'Everything staff can do, plus manage users and company details.' },
   { value: 'global_admin', label: 'Global admin', hint: 'Manages every company. ASAP Rebates staff only.' },
 ];
-const roleOf = u => (u.is_global_admin ? 'global_admin' : u.is_admin ? 'admin' : 'staff');
+const roleOf = u => u.role || (u.is_global_admin ? 'global_admin' : u.is_admin ? 'admin' : u.is_worker ? 'worker' : 'staff');
 const roleLabel = r => ROLES.find(x => x.value === r)?.label;
 const initials = n => (n || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 const rpcError = e => (e?.message || 'Something went wrong').replace(/^.*?exception:\s*/i, '');
@@ -86,7 +87,8 @@ function AddUserDialog({ company, allowGlobal, onClose, onSaved }) {
     const { data, error } = await supabase.functions.invoke('admin-create-user', {
       body: {
         email: f.email.trim(), password: f.password, name: f.name.trim(), phone: f.phone.trim() || null,
-        company_id: company.company_id, is_admin: f.role !== 'staff', is_global_admin: f.role === 'global_admin',
+        company_id: company.company_id, is_admin: ['admin', 'global_admin'].includes(f.role),
+        is_global_admin: f.role === 'global_admin', is_worker: f.role === 'worker',
       },
     });
     setBusy(false);
@@ -214,7 +216,7 @@ function CompanyPanel({ company, isGlobal, ownCompanyId, me, onCompanyChanged, t
 
   const load = useCallback(async () => {
     setErr('');
-    const { data, error } = await supabase.rpc('fn_company_users', { _company: company.company_id });
+    const { data, error } = await supabase.rpc('fn_company_members', { _company: company.company_id });
     if (error) return setErr(rpcError(error));
     setUsers(data || []);
   }, [company.company_id]);
@@ -288,7 +290,7 @@ function CompanyPanel({ company, isGlobal, ownCompanyId, me, onCompanyChanged, t
             <tbody>
               {users.map(u => {
                 const self = u.user_id === me;
-                const manageable = !self && (isGlobal || !u.is_global_admin);
+                const manageable = !self && (isGlobal || roleOf(u) !== 'global_admin');
                 return (
                   <tr key={u.user_id} className={u.active ? '' : 'inactive'}>
                     <td>
@@ -300,7 +302,7 @@ function CompanyPanel({ company, isGlobal, ownCompanyId, me, onCompanyChanged, t
                         </div>
                       </div>
                     </td>
-                    <td><span className={`pill ${u.is_global_admin ? 'accent' : u.is_admin ? 'info' : 'neutral'}`}>{roleLabel(roleOf(u))}</span></td>
+                    <td><span className={`pill ${{ global_admin: 'accent', admin: 'info', worker: 'warn' }[roleOf(u)] || 'neutral'}`}>{roleLabel(roleOf(u))}</span></td>
                     <td>{u.mfa_enabled ? <span className="pill good">On</span> : <span className="sub">Off</span>}</td>
                     <td className="sub">{u.last_sign_in_at ? formatDate(u.last_sign_in_at, true) : 'Never'}</td>
                     <td><span className={`pill ${u.active ? 'good' : 'muted'}`}>{u.active ? 'Active' : 'Inactive'}</span></td>

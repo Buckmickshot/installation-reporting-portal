@@ -2,12 +2,14 @@ import React from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthProvider';
 import { BRAND } from '../../config/brand';
+import { permissions, ROLE_LABEL } from '../../utils/roles';
 import '../../styles/portal.css';
 
 export default function AppHeader() {
   const { profile, company, signOut } = useAuth();
   const navigate = useNavigate();
-  const role = profile?.is_global_admin ? 'Global admin' : profile?.is_admin ? 'Admin' : 'Staff';
+  const can = permissions(profile);
+  const role = ROLE_LABEL[can.role] || '';
 
   return (
     <header className="app-header">
@@ -19,8 +21,9 @@ export default function AppHeader() {
         </span>
       </Link>
       <nav>
-        <NavLink to="/" end>Jobs</NavLink>
-        {(profile?.is_admin || profile?.is_global_admin) && <NavLink to="/team">{profile?.is_global_admin ? 'Team & companies' : 'Team'}</NavLink>}
+        <NavLink to="/" end>{can.isWorker ? 'My jobs' : 'Jobs'}</NavLink>
+        {can.manageTeam && <NavLink to="/team">{can.isGlobal ? 'Team & companies' : 'Team'}</NavLink>}
+        {can.viewAudit && <NavLink to="/activity">Data log</NavLink>}
         <NavLink to="/settings">Settings</NavLink>
         <a href={`${process.env.PUBLIC_URL || ''}/app`} target="_blank" rel="noreferrer" title="The installer app for phones">Field app ↗</a>
       </nav>

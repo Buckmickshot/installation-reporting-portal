@@ -293,3 +293,41 @@ table.users tr.inactive td.row-actions { opacity: 1; }
 .choice.on .choice-tick { background: var(--accent); border-color: var(--accent); }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 .btn.lg { padding: .7rem 1.2rem; font-size: 1rem; }
+
+/* ---------- data log ---------- */
+.audit-list { list-style: none; margin: 0; padding: 0; }
+.audit-list li { border-bottom: 1px solid var(--line); }
+.audit-list li:last-child { border-bottom: 0; }
+.audit-row { width: 100%; display: grid; grid-template-columns: 150px 1fr auto 16px; gap: 12px; align-items: center; padding: 10px 6px; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 6px; }
+.audit-row:hover { background: var(--muted-bg); }
+.audit-when { font-size: .8rem; color: var(--ink-2); white-space: nowrap; }
+.audit-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audit-what b { display: inline-block; }
+.audit-what b::first-letter { text-transform: uppercase; }
+.audit-who { font-size: .82rem; color: var(--ink-2); white-space: nowrap; }
+.audit-caret { color: var(--ink-2); font-size: .8rem; }
+.audit-detail { padding: 4px 6px 16px; display: grid; gap: 12px; }
+.audit-diff { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.audit-diff th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.audit-diff td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; word-break: break-word; }
+.audit-diff td.old { color: var(--danger); background: var(--danger-bg); }
+.audit-diff td.new { color: var(--good); background: var(--good-bg); }
+.audit-where { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-end; background: var(--muted-bg); border-radius: 8px; padding: 10px 12px; font-size: .85rem; }
+.audit-sql { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.audit-sql code { font-size: .78rem; background: #fff; border: 1px solid var(--line); padding: 4px 8px; border-radius: 6px; overflow-x: auto; white-space: nowrap; max-width: 520px; }
+.stored { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: .85rem; }
+.stored li { display: grid; gap: 3px; }
+.stored code { font-size: .76rem; background: var(--muted-bg); padding: 3px 6px; border-radius: 5px; overflow-x: auto; white-space: nowrap; }
+.stored code.copyable { cursor: copy; }
+@media (max-width: 700px) { .audit-row { grid-template-columns: 1fr auto; } .audit-when, .audit-caret { display: none; } }
+.pw-step { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pw-step .step-no { width: 22px; height: 22px; font-size: .72rem; }
+.pw-step .step-no.done { background: var(--good); }
+.pw-step b + .step-no { margin-left: 10px; }
+.audit-list.compact .audit-row { grid-template-columns: 1fr 14px; gap: 2px 8px; }
+.audit-list.compact .audit-when { grid-column: 1; grid-row: 2; display: block; }
+.audit-list.compact .audit-who { display: none; }
+.audit-list.compact .audit-caret { grid-row: 1 / span 2; grid-column: 2; }
+.audit-list.compact .audit-what { white-space: normal; }
+.audit-list.compact .audit-sql code { max-width: 100%; }
+.audit-toggle { display: flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--ink-2); white-space: nowrap; }

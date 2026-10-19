@@ -9,6 +9,8 @@ import { LoadInstallation, wizardPath } from '../homeScreen/LoadInstallation';
 import AppHeader from '../layout/AppHeader';
 import EvidencePanel from './EvidencePanel';
 import { MenuButton } from '../ui/Modal';
+import { permissions } from '../../utils/roles';
+import { AuditEntries, actorNames, sqlFor } from '../activity/ActivityLog';
 import { readinessChecklist } from '../../utils/readiness';
 import { STATUS_BY_VALUE, statusLabel, availableActions, isEditable, formatDate } from '../../utils/jobStatus';
 import { buildAssignmentFormPdf, downloadBytes } from '../../forms/assignmentFormPdf';
@@ -78,15 +80,26 @@ export default function JobOverview() {
   const [team, setTeam] = useState([]);
   const [exporting, setExporting] = useState(false);
 
+  const can = permissions(profile);
   const isAdmin = !!(profile?.is_global_admin || (profile?.is_admin && job && profile.company_id === job.company_id));
   const checklist = useMemo(() => readinessChecklist(formData, evidence), [formData, evidence]);
-  const editable = job ? isEditable(job.status, isAdmin) : false;
+  const editable = job ? !can.isWorker && isEditable(job.status, isAdmin) : false;
+  const evidenceEditable = job ? (can.isWorker ? ['draft', 'rfi', 'ready_for_review'].includes(job.status) : editable) : false;
+  const [history, setHistory] = useState(null);
+  const [historyNames, setHistoryNames] = useState({});
+
+  useEffect(() => {
+    if (!job || !can.viewAudit) return;
+    const ids = [job.installation_id, formData.premisesId, formData.consumerId, ...evidence.map(e => e.evidence_id)].filter(Boolean);
+    supabase.from('audit_log').select('*').in('record_id', ids).order('at', { ascending: false }).limit(60)
+      .then(async ({ data }) => { setHistory(data || []); setHistoryNames(await actorNames(data || [])); });
+  }, [job, can.viewAudit, formData.premisesId, formData.consumerId, evidence]);
 
   useEffect(() => {
     if (!job || !isAdmin) return;
     supabase
       .from('profiles')
-      .select('user_id, name, email, active')
+      .select('user_id, name, email, active, is_worker, is_admin')
       .eq('company_id', job.company_id)
       .eq('active', true)
       .order('name')
@@ -188,7 +201,7 @@ export default function JobOverview() {
   };
 
   const tone = STATUS_BY_VALUE[job.status]?.tone;
-  const actions = availableActions(job.status, isAdmin);
+  const actions = can.changeStatus ? availableActions(job.status, isAdmin) : [];
   const groups = [...new Set(checklist.items.map(i => i.group))];
   const actorName = uid => team.find(t => t.user_id === uid)?.name || (uid === user.id ? 'You' : null);
 
@@ -201,12 +214,18 @@ export default function JobOverview() {
           <h1 className="mono" style={{ fontSize: '1.3rem' }}>{job.job_ref}</h1>
           <span className={`pill ${tone}`}>{statusLabel(job.status)}</span>
           <div className="actions">
-            <MenuButton label={exporting ? 'Creating…' : 'Rebate application form'} disabled={exporting} items={[
-              { label: 'Download PDF', hint: 'Official ESC Activity 6 assignment form, filled in', onClick: () => exportPdf() },
-              { label: 'Download Word (.docx)', hint: 'Same form, editable', onClick: exportDocx },
-            ]} />
-            <Link className="btn primary" to={wizardPath(job)}>{editable ? 'Edit job form' : 'View job form'}</Link>
-            {['draft', 'cancelled'].includes(job.status) && (isAdmin || job.user_id === user.id) && (
+            {can.downloadForm(job.status) ? (
+              <MenuButton label={exporting ? 'Creating…' : 'Rebate application form'} disabled={exporting} items={[
+                { label: 'Download PDF', hint: 'Official ESC Activity 6 assignment form, filled in', onClick: () => exportPdf() },
+                { label: 'Download Word (.docx)', hint: 'Same form, editable', onClick: exportDocx },
+              ]} />
+            ) : (
+              <button className="btn" disabled title="Available once the office has submitted the job">Rebate application form</button>
+            )}
+            {can.isWorker
+              ? <a className="btn primary" href={`${process.env.PUBLIC_URL || ''}/app/jobs/${id}`}>Open in ASAP Field</a>
+              : <Link className="btn primary" to={wizardPath(job)}>{editable ? 'Edit job form' : 'View job form'}</Link>}
+            {!can.isWorker && ['draft', 'cancelled'].includes(job.status) && (isAdmin || job.user_id === user.id) && (
               <button className="btn danger" onClick={deleteJob}>Delete</button>
             )}
           </div>
@@ -215,7 +234,9 @@ export default function JobOverview() {
         {job.status === 'rfi' && job.last_rfi_message && (
           <div className="banner warn"><b>Information requested:</b> {job.last_rfi_message}</div>
         )}
-        {!editable && <div className="banner info">This job has been submitted and is locked. An admin can still make corrections.</div>}
+        {can.isWorker
+          ? <div className="banner info">You’re allocated to this job. You can view it and add photos, signatures and notes; the office edits the job form.</div>
+          : !editable && <div className="banner info">This job has been submitted and is locked. An admin can still make corrections.</div>}
 
         <div className="grid-2">
           <div>
@@ -236,7 +257,7 @@ export default function JobOverview() {
             <section className="card">
               <h2>Photos &amp; signatures</h2>
               <p className="sub" style={{ marginTop: -6 }}>Installers capture these on site with the <a href={`${process.env.PUBLIC_URL || ''}/app/jobs/${id}`} target="_blank" rel="noreferrer">ASAP Field app</a>.</p>
-              <EvidencePanel installationId={id} evidence={evidence} editable={editable} allowSign={false} onChanged={() => { loadEvidence(); loadEvents(); loadJob(); }} />
+              <EvidencePanel installationId={id} evidence={evidence} editable={evidenceEditable} allowSign={false} onChanged={() => { loadEvidence(); loadEvents(); loadJob(); }} />
             </section>
 
             <section className="card">
@@ -262,7 +283,7 @@ export default function JobOverview() {
           </div>
 
           <div>
-            <section className="card">
+            {!can.isWorker && <section className="card">
               <h2>Next step</h2>
               {actions.length === 0 && <p className="sub">No actions available.</p>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -293,7 +314,7 @@ export default function JobOverview() {
                   </div>
                 </div>
               )}
-            </section>
+            </section>}
 
             <section className="card">
               <h2>Compliance checklist</h2>
@@ -317,13 +338,47 @@ export default function JobOverview() {
               {isAdmin ? (
                 <select className="input" style={{ width: '100%' }} value={job.assigned_to || ''} onChange={e => assign(e.target.value)}>
                   <option value="">Unassigned</option>
-                  {team.map(t => <option key={t.user_id} value={t.user_id}>{t.name || t.email}</option>)}
+                  {team.map(t => <option key={t.user_id} value={t.user_id}>{t.name || t.email}{t.is_worker ? ' (worker)' : ''}</option>)}
                 </select>
               ) : (
                 <p>{job.assigned_to_name || 'Unassigned'}</p>
               )}
               <button className="btn small ghost" style={{ marginTop: 8 }} onClick={reloadAll}>↻ Refresh</button>
             </section>
+
+            {can.viewAudit && (
+              <section className="card">
+                <h2>Where this job is stored</h2>
+                <ul className="stored">
+                  {[
+                    ['Job & job form answers', 'snapshot.installation', job.installation_id],
+                    ['Installation address', 'snapshot.premises', formData.premisesId],
+                    ['Customer (phone & email encrypted)', 'snapshot.consumer_records', formData.consumerId],
+                  ].filter(r => r[2]).map(([label, loc, rid]) => (
+                    <li key={loc}>
+                      <b>{label}</b>
+                      <code>{loc}</code>
+                      <code className="copyable" title="Click to copy" onClick={() => navigator.clipboard?.writeText(sqlFor(loc, rid))}>{sqlFor(loc, rid)}</code>
+                    </li>
+                  ))}
+                  <li>
+                    <b>Photos & signatures ({evidence.length})</b>
+                    <code>snapshot.job_evidence</code>
+                    <code>Storage → uploads → jobs/{job.installation_id}/evidence/</code>
+                  </li>
+                  <li>
+                    <b>Status changes & notes</b>
+                    <code>snapshot.job_events</code>
+                  </li>
+                </ul>
+              </section>
+            )}
+            {can.viewAudit && (
+              <section className="card">
+                <h2>Change history</h2>
+                {history ? <AuditEntries entries={history} names={historyNames} compact /> : <p className="sub">Loading…</p>}
+              </section>
+            )}
           </div>
         </div>
       </main>

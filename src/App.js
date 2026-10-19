@@ -25,6 +25,16 @@ import FieldApp from './field/FieldApp';
 import { useParams } from 'react-router-dom';
 import AccountSettings from './components/settings/AccountSettings';
 import ForgotPassword from './components/Authentication/ForgotPassword';
+import ActivityLog from './components/activity/ActivityLog';
+import { useAuth } from './contexts/AuthProvider';
+import { permissions } from './utils/roles';
+import { Outlet } from 'react-router-dom';
+
+/** Pages workers can't use (job creation, job form, admin pages). */
+function NotForWorkers() {
+  const { profile } = useAuth();
+  return permissions(profile).isWorker ? <Navigate to="/" replace /> : <Outlet />;
+}
 
 function FieldRedirect() {
   const { id } = useParams();
@@ -49,23 +59,27 @@ export default function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<HomeScreen />} />
                 <Route path="/settings" element={<AccountSettings />} />
-                <Route path="/new-job" element={<NewJobPage />} />
-                <Route path="/choose-installation-type" element={<Navigate to="/new-job" replace />} />
+                <Route path="/activity" element={<ActivityLog />} />
                 <Route path="/jobs/:id" element={<JobOverview />} />
                 <Route path="/jobs/:id/field" element={<FieldRedirect />} />
                 <Route path="/app/*" element={<FieldApp />} />
                 <Route path="/team" element={<TeamPage />} />
                 <Route path="/security" element={<Navigate to="/settings" replace />} />
 
-                <Route path="/create-job/:workType/:premiseType?" element={<JobLayout />}>
-                  <Route index               element={<Navigate to="customer" replace />} />
-                  <Route path="customer"     element={<CustomerScreen />} />
-                  <Route path="decommission" element={<DecommissionScreen />} />
-                  <Route path="benefit"      element={<BenefitInstallationScreen />} />
-                  <Route path="worker"       element={<WorkerScreen />} />
-                  <Route path="review"       element={<ReviewInstallScreen />} />
-                  <Route path="declaration"  element={<DeclarationScreen />} />
-                  <Route path="postInstall"  element={<PostInstallScreen />} />
+                {/* not for workers: creating jobs and editing the job form */}
+                <Route element={<NotForWorkers />}>
+                  <Route path="/new-job" element={<NewJobPage />} />
+                  <Route path="/choose-installation-type" element={<Navigate to="/new-job" replace />} />
+                  <Route path="/create-job/:workType/:premiseType?" element={<JobLayout />}>
+                    <Route index               element={<Navigate to="customer" replace />} />
+                    <Route path="customer"     element={<CustomerScreen />} />
+                    <Route path="decommission" element={<DecommissionScreen />} />
+                    <Route path="benefit"      element={<BenefitInstallationScreen />} />
+                    <Route path="worker"       element={<WorkerScreen />} />
+                    <Route path="review"       element={<ReviewInstallScreen />} />
+                    <Route path="declaration"  element={<DeclarationScreen />} />
+                    <Route path="postInstall"  element={<PostInstallScreen />} />
+                  </Route>
                 </Route>
               </Route>
 

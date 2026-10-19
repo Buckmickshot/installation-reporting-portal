@@ -8,6 +8,7 @@ import AppHeader from '../layout/AppHeader';
 import { STATUSES, STATUS_BY_VALUE, statusLabel, formatDate } from '../../utils/jobStatus';
 import { toCsv, downloadCsv } from '../../utils/csv';
 import { appUrl } from '../../config/env';
+import { permissions } from '../../utils/roles';
 import '../../styles/portal.css';
 
 const OPEN_STATUSES = ['draft', 'rfi', 'ready_for_review', 'submitted', 'approved'];
@@ -16,6 +17,7 @@ export default function HomeScreen() {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const isGlobal = !!profile?.is_global_admin;
+  const can = permissions(profile);
 
   const [jobs, setJobs] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -88,6 +90,7 @@ export default function HomeScreen() {
     if (!window.confirm('Reset the demo jobs (Northside & Bayside) to their starting state? Other jobs are not touched.')) return;
     const { error } = await supabase.rpc('fn_reset_demo', { _asset_base: appUrl('/').replace(/\/$/, '') });
     if (error) return alert(error.message);
+    await supabase.rpc('fn_demo_assign_workers');
     load();
   };
 
@@ -129,11 +132,11 @@ export default function HomeScreen() {
       <AppHeader />
       <main className="page">
         <div className="page-title">
-          <h1>Jobs</h1>
+          <h1>{can.isWorker ? 'My jobs' : 'Jobs'}</h1>
           <div className="actions">
             {isGlobal && <button className="btn" onClick={resetDemo} title="Restore the showcase jobs">↺ Reset demo data</button>}
             <button className="btn" onClick={exportCsv} disabled={!visible.length}>Export CSV</button>
-            <button className="btn primary" onClick={startJob}>+ New job</button>
+            {can.createJobs && <button className="btn primary" onClick={startJob}>+ New job</button>}
           </div>
         </div>
 
@@ -171,7 +174,7 @@ export default function HomeScreen() {
           {loading ? (
             <p className="empty">Loading jobs…</p>
           ) : visible.length === 0 ? (
-            <p className="empty">{jobs.length ? 'No jobs match these filters.' : 'No jobs yet — create the first one.'}</p>
+            <p className="empty">{jobs.length ? 'No jobs match these filters.' : can.isWorker ? 'No jobs are allocated to you yet.' : 'No jobs yet — create the first one.'}</p>
           ) : (
             <div className="table-wrap">
               <table className="jobs">

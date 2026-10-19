@@ -358,6 +358,7 @@ function FieldJob() {
   const [openStep, setOpenStep] = useState(null);
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState('');
+  const [notified, setNotified] = useState(false);
 
   const plan = useMemo(() => (fd ? fieldSteps(fd, evidence) : null), [fd, evidence]);
   useEffect(() => {
@@ -368,8 +369,11 @@ function FieldJob() {
   if (!job || !plan) return <><TopBar title="Loading…" back="/app" /><main className="f-main"><p className="f-muted">Loading job…</p></main></>;
 
   const isAdmin = !!(profile?.is_global_admin || (profile?.is_admin && profile.company_id === job.company_id));
+  const isWorker = !!profile?.is_worker;
   const editable = isAdmin || ['draft', 'rfi', 'ready_for_review'].includes(job.status);
-  const canSend = ['draft', 'rfi'].includes(job.status);
+  const detailsEditable = editable && !isWorker; // workers add photos & signatures only
+  const canSend = !isWorker && ['draft', 'rfi'].includes(job.status);
+  const canNotify = isWorker && editable;
 
   const saveFd = async patch => {
     const { data: row, error: e1 } = await supabase.from('installation').select('form_data').eq('installation_id', id).single();
@@ -390,6 +394,18 @@ function FieldJob() {
     if (err) return alert(err.message);
     setNote('');
     reload();
+  };
+
+  const notifyOffice = async () => {
+    setSending(true);
+    const { error: err } = await supabase.from('job_events').insert({
+      installation_id: id, event_type: 'note', actor: user.id,
+      message: `Site work finished: ${plan.done} of ${plan.total} items captured.${note.trim() ? ' ' + note.trim() : ''}`,
+    });
+    setSending(false);
+    if (err) return alert(err.message);
+    setNote('');
+    setNotified(true);
   };
 
   const customerName = [fd.firstName, fd.surname].filter(Boolean).join(' ') || job.customer_name || '';
@@ -427,8 +443,8 @@ function FieldJob() {
                   if (it.type === 'photo') return <PhotoItem key={key} item={it} jobId={id} evidence={evidence} editable={editable} onChange={reload} />;
                   if (it.type === 'signature') return <SignatureItem key={key} item={it} jobId={id} evidence={evidence} editable={editable} onChange={reload}
                     defaultName={it.kind === 'customer_signature' ? customerName : profile?.name} />;
-                  if (it.type === 'serial') return <SerialInput key={key} item={it} fd={fd} editable={editable} onSave={saveFd} />;
-                  return <FieldInput key={key} item={it} fd={fd} editable={editable} onSave={saveFd} />;
+                  if (it.type === 'serial') return <SerialInput key={key} item={it} fd={fd} editable={detailsEditable} onSave={saveFd} />;
+                  return <FieldInput key={key} item={it} fd={fd} editable={detailsEditable} onSave={saveFd} />;
                 })}
                 {idx < plan.steps.length - 1 && <button className="f-btn ghost block" onClick={() => setOpenStep(plan.steps[idx + 1].id)}>Next: {plan.steps[idx + 1].title} →</button>}
               </div>
@@ -436,7 +452,8 @@ function FieldJob() {
           </section>
         ))}
 
-        {canSend && (
+        {isWorker && editable && <p className="f-muted small" style={{ textAlign: 'center' }}>Serial numbers and install details are filled in by the office.</p>}
+        {(canSend || canNotify) && (
           <section className="f-card">
             <label className="f-label">Note for the office (optional)
               <textarea className="f-input" rows={2} value={note} onChange={e => setNote(e.target.value)} placeholder="Anything they should know?" />
@@ -453,6 +470,12 @@ function FieldJob() {
           <button className={`f-btn ${plan.complete ? 'primary' : 'dark'} block lg`} disabled={sending} onClick={send}>
             {sending ? 'Sending…' : plan.complete ? 'Send to office for review' : `Send to office (${plan.total - plan.done} missing)`}
           </button>
+        ) : canNotify ? (
+          notified
+            ? <div className="f-bar-done">✓ The office has been told you’re finished</div>
+            : <button className={`f-btn ${plan.complete ? 'primary' : 'dark'} block lg`} disabled={sending} onClick={notifyOffice}>
+                {sending ? 'Sending…' : 'Tell the office I’m finished'}
+              </button>
         ) : (
           <div className="f-bar-done">
             {job.status === 'ready_for_review' ? '✓ Sent to the office — you can still add photos' : `Status: ${statusLabel(job.status)}`}

@@ -209,7 +209,8 @@ async function adminCreateUser(req, res) {
   if (u.status >= 300) return send(res, 400, { error: /already/i.test(JSON.stringify(u.body)) ? 'A user with this email already exists.' : (u.body.msg || u.body.message || 'Could not create user') });
   const p = await upstreamJson(REST, 'POST', '/profiles', { ...svc, 'Content-Profile': 'snapshot' }, {
     user_id: u.body.id, company_id: b.company_id, name: b.name, email, phone: b.phone || null,
-    is_admin: !!b.is_admin, is_global_admin: !!b.is_global_admin, active: true });
+    is_admin: !!b.is_admin, is_global_admin: !!b.is_global_admin,
+    is_worker: !b.is_admin && !b.is_global_admin && !!b.is_worker, active: true });
   if (p.status >= 300) { await upstreamJson(AUTH, 'DELETE', `/admin/users/${u.body.id}`, svc); return send(res, 400, { error: p.body.message || 'Could not create profile' }); }
   return send(res, 200, { user_id: u.body.id });
 }

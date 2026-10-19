@@ -50,13 +50,14 @@ Deno.serve(async req => {
 
     const admin = createClient(url, service, { auth: { persistSession: false }, db: { schema: 'snapshot' } });
     const { data: created, error } = await admin.auth.admin.createUser({
-      email, password, email_confirm: true, user_metadata: { name },
+      email, password, email_confirm: true, user_metadata: { name, full_name: name, display_name: name },
     });
     if (error) return json(400, { error: /already/i.test(error.message) ? 'A user with this email already exists.' : error.message });
 
     const { error: pErr } = await admin.from('profiles').insert({
       user_id: created.user.id, company_id: companyId, name, email, phone,
-      is_admin: !!b.is_admin, is_global_admin: !!b.is_global_admin, active: true,
+      is_admin: !!b.is_admin, is_global_admin: !!b.is_global_admin,
+      is_worker: !b.is_admin && !b.is_global_admin && !!b.is_worker, active: true,
     });
     if (pErr) {
       await admin.auth.admin.deleteUser(created.user.id);
