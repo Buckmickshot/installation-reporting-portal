@@ -17,8 +17,8 @@ export default function AppHeader() {
       </div>
       <nav>
         <NavLink to="/" end>Jobs</NavLink>
-        <NavLink to="/security">Security</NavLink>
-        <NavLink to="/settings">{profile?.is_admin || profile?.is_global_admin ? 'Team & companies' : 'My account'}</NavLink>
+        {(profile?.is_admin || profile?.is_global_admin) && <NavLink to="/team">Team & companies</NavLink>}
+        <NavLink to="/settings">Settings</NavLink>
       </nav>
       <div className="spacer" />
       <div className="who">

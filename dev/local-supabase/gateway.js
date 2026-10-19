@@ -173,6 +173,47 @@ async function storage(req, res) {
   return send(res, 404, { message: `storage route not implemented: ${req.method} ${rest}` });
 }
 
+
+// Local stand-in for the admin-create-user Edge Function (supabase/functions/admin-create-user)
+const SERVICE_KEY = (() => {
+  try { return fs.readFileSync(path.join(__dirname, 'keys.env'), 'utf8').match(/SERVICE_ROLE_KEY=(.+)/)[1].trim(); } catch { return ''; }
+})();
+function upstreamJson(target, method, pathName, headers, body) {
+  return new Promise((resolve, reject) => {
+    const data = body ? Buffer.from(JSON.stringify(body)) : null;
+    const r = http.request({ ...target, method, path: pathName, headers: { 'Content-Type': 'application/json', ...(data ? { 'Content-Length': data.length } : {}), ...headers } }, up => {
+      const chunks = []; up.on('data', c => chunks.push(c)); up.on('end', () => {
+        const text = Buffer.concat(chunks).toString(); let parsed = null; try { parsed = JSON.parse(text); } catch { parsed = text; }
+        resolve({ status: up.statusCode, body: parsed });
+      });
+    });
+    r.on('error', reject); if (data) r.write(data); r.end();
+  });
+}
+const strongPw = p => p.length >= 10 && /[A-Z]/.test(p) && /[a-z]/.test(p) && /\d/.test(p) && /[^A-Za-z0-9]/.test(p);
+async function adminCreateUser(req, res) {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!verifyJwt(token)) return send(res, 401, { error: 'Please sign in again.' });
+  const b = JSON.parse((await readBody(req)).toString() || '{}');
+  const email = String(b.email || '').trim().toLowerCase();
+  if (!b.name || !b.company_id) return send(res, 400, { error: 'Name and company are required.' });
+  if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(email)) return send(res, 400, { error: 'Enter a valid email address.' });
+  if (!strongPw(String(b.password || ''))) return send(res, 400, { error: 'Password must be at least 10 characters with upper and lower case letters, a number and a symbol.' });
+  const asCaller = { Authorization: `Bearer ${token}`, 'Content-Profile': 'snapshot', 'Accept-Profile': 'snapshot' };
+  const g = await upstreamJson(REST, 'POST', '/rpc/is_global_admin', asCaller, {});
+  const a = await upstreamJson(REST, 'POST', '/rpc/is_company_admin', asCaller, { _company: b.company_id });
+  if (g.body !== true && a.body !== true) return send(res, 403, { error: 'Only an admin of this company can add users.' });
+  if (b.is_global_admin && g.body !== true) return send(res, 403, { error: 'Only a global admin can create global admins.' });
+  const svc = { Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY };
+  const u = await upstreamJson(AUTH, 'POST', '/admin/users', svc, { email, password: b.password, email_confirm: true, user_metadata: { name: b.name } });
+  if (u.status >= 300) return send(res, 400, { error: /already/i.test(JSON.stringify(u.body)) ? 'A user with this email already exists.' : (u.body.msg || u.body.message || 'Could not create user') });
+  const p = await upstreamJson(REST, 'POST', '/profiles', { ...svc, 'Content-Profile': 'snapshot' }, {
+    user_id: u.body.id, company_id: b.company_id, name: b.name, email, phone: b.phone || null,
+    is_admin: !!b.is_admin, is_global_admin: !!b.is_global_admin, active: true });
+  if (p.status >= 300) { await upstreamJson(AUTH, 'DELETE', `/admin/users/${u.body.id}`, svc); return send(res, 400, { error: p.body.message || 'Could not create profile' }); }
+  return send(res, 200, { user_id: u.body.id });
+}
+
 http
   .createServer(async (req, res) => {
     if (req.method === 'OPTIONS') return send(res, 204, '');
@@ -180,6 +221,7 @@ http
       if (req.url.startsWith('/auth/v1')) return proxy(req, res, AUTH, '/auth/v1');
       if (req.url.startsWith('/rest/v1')) return proxy(req, res, REST, '/rest/v1');
       if (req.url.startsWith('/storage/v1')) return await storage(req, res);
+      if (req.url.startsWith('/functions/v1/admin-create-user') && req.method === 'POST') return await adminCreateUser(req, res);
       if (req.url === '/mail' || req.url.startsWith('/mail?')) {
         const files = fs.readdirSync(MAIL).sort().reverse().slice(0, 20);
         return send(res, 200, files.map(f => ({ file: f, body: fs.readFileSync(path.join(MAIL, f), 'utf8') })));

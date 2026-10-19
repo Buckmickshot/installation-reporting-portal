@@ -167,3 +167,24 @@ table.jobs tr.row:hover td { background: #f8fafc; }
 .cipher .sub { color: #9aa7b4; margin-bottom: 4px; }
 .cipher code { font-size: .78rem; word-break: break-all; }
 .demo-note { border: 1px dashed #c5ced8; border-radius: 6px; padding: 8px 10px; font-size: .8rem; color: var(--ink-2); margin-top: 10px; }
+
+/* account settings */
+.settings-page { max-width: 920px; }
+.settings-section { display: grid; grid-template-columns: 260px 1fr; gap: 24px; padding: 24px 0; border-top: 1px solid var(--line); }
+.settings-section:first-of-type { border-top: 0; }
+.settings-section-head h2 { font-size: 1rem; margin: 0 0 6px; }
+.settings-section-body { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+.settings-form { display: grid; gap: 14px; max-width: 460px; }
+.settings-label { display: grid; gap: 6px; font-size: .88rem; font-weight: 600; }
+.settings-label .input { font-weight: 400; height: 40px; }
+.settings-label .sub { font-weight: 400; }
+.settings-form .auth-field input { height: 40px; }
+.settings-form .pw-rules { margin-top: -4px; }
+.mfa-row { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.mfa-enrol { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.mfa-enrol img { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+.protect summary { cursor: pointer; font-weight: 600; }
+.protect ul { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: .9rem; color: var(--ink-2); }
+.protect b { color: var(--ink); }
+.cipher-inline { display: block; margin-top: 6px; background: #0f1720; color: #9fe2b8; border-radius: 6px; padding: 6px 8px; font-size: .75rem; word-break: break-all; }
+@media (max-width: 760px) { .settings-section { grid-template-columns: 1fr; gap: 10px; } }

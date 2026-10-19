@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthProvider';
-import { supabase, createEphemeralClient } from '../../relationship/supabaseConfig';
+import { supabase } from '../../relationship/supabaseConfig';
 import { appUrl } from '../../config/env';
+import { isStrongPassword, isEmail, PASSWORD_RULES } from '../../utils/passwordPolicy';
 import { FaPencilAlt } from 'react-icons/fa';
 import './SettingsScreen.css';
 import AppHeader from '../layout/AppHeader';
@@ -143,45 +144,24 @@ export default function SettingsScreen() {
   const handleCreateUser = async (companyId) => {
     if (!newUser.email || !newUser.password || !newUser.name || !newUser.phone)
       return alert('Fill in all fields');
+    if (!isEmail(newUser.email)) return alert('Enter a valid email address.');
+    if (!isStrongPassword(newUser.password))
+      return alert('The password must have: ' + PASSWORD_RULES.map(r => r.label.toLowerCase()).join(', ') + '.');
   
-    // use a session-less client so the admin stays logged in
-    const { data, error } = await createEphemeralClient().auth.signUp({
-      email: newUser.email,
-      password: newUser.password,
-      // ⬇️ keep ONLY what you need for JWT / RLS
-      options: {
-        data: {
-          company_id: companyId,
-          is_admin:       newUser.is_admin,
-          is_global_admin:newUser.is_global_admin,
-        },
-        emailRedirectTo: appUrl('/auth/callback'),
+    // created server-side by the admin-create-user Edge Function (public sign-ups stay off)
+    const { data, error } = await supabase.functions.invoke('admin-create-user', {
+      body: {
+        email: newUser.email, password: newUser.password, name: newUser.name, phone: newUser.phone,
+        company_id: companyId, is_admin: newUser.is_admin, is_global_admin: newUser.is_global_admin,
       },
     });
-    if (error || !data?.user)
-      return alert("Auth error: " + (error?.message ?? 'unknown'));
-  
-    // 1️⃣  create the profile row right away (confirmed = false)
-    const { error: upsertError } = await supabase
-      .from('profiles')
-      .upsert({
-        user_id: data.user.id,
-        company_id: companyId,
-        name: newUser.name,
-        phone: newUser.phone,
-        email: newUser.email,
-        is_admin: newUser.is_admin,
-        is_global_admin: newUser.is_global_admin,
-        active: true,
-        confirmed: false,      // ⬅️ becomes true in AuthCallback after the click
-      }, { onConflict: 'user_id' });
-  
-    if (upsertError)
-      return alert("Profile creation failed: " + upsertError.message);
-  
-    alert(data.session
-      ? 'User created. They can log in now.'
-      : 'User invited. They must confirm their email before activation.');
+    if (error || data?.error) {
+      let msg = data?.error;
+      try { msg = msg || (await error.context.json()).error; } catch { /* ignore */ }
+      return alert('Could not create user: ' + (msg || error?.message || 'unknown error'));
+    }
+
+    alert(`${newUser.name} can now sign in with ${newUser.email} and the password you set. Ask them to change it in Settings.`);
     fetchUsersForCompany(companyId, true);
     setNewUser({ name: '', phone: '', email: '', password: '', is_admin: false, is_global_admin: false });
     setModalState({ companyId: null, mode: null, previousVersionId: null });

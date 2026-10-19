@@ -22,7 +22,8 @@ import AuthCallback from './components/Authentication/AuthCallback';
 import ResetPassword from './components/Authentication/ResetPassword';
 import JobOverview from './components/jobs/JobOverview';
 import FieldCapture from './components/jobs/FieldCapture';
-import SecurityPage from './components/security/SecurityPage';
+import AccountSettings from './components/settings/AccountSettings';
+import ForgotPassword from './components/Authentication/ForgotPassword';
 
 export default function App() {
   return (
@@ -36,15 +37,17 @@ export default function App() {
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
 
               {/* protected routes */}
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<HomeScreen />} />
-                <Route path="/settings" element={<SettingsScreen />} />
+                <Route path="/settings" element={<AccountSettings />} />
                 <Route path="/choose-installation-type" element={<InstallationTypeScreen />} />
                 <Route path="/jobs/:id" element={<JobOverview />} />
                 <Route path="/jobs/:id/field" element={<FieldCapture />} />
-                <Route path="/security" element={<SecurityPage />} />
+                <Route path="/team" element={<SettingsScreen />} />
+                <Route path="/security" element={<Navigate to="/settings" replace />} />
 
                 <Route path="/create-job/:workType/:premiseType?" element={<JobLayout />}>
                   <Route index               element={<Navigate to="customer" replace />} />

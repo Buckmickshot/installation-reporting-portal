@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../relationship/supabaseConfig';
+import { authErrorMessage } from '../utils/passwordPolicy';
 
 const AuthContext = createContext();
 
@@ -46,6 +47,12 @@ export function AuthProvider({ children }) {
         .eq('user_id', sessionUser.id)
         .maybeSingle();
       if (profileError || !profileData) {
+        // the session may have ended while we were fetching (e.g. sign-out after a password reset)
+        const { data: { session: still } } = await supabase.auth.getSession();
+        if (!still?.user) {
+          clear(null);
+          return 'no-session';
+        }
         clear('profile-fetch-failed');
         return 'profile-fetch-failed';
       }
@@ -105,17 +112,7 @@ export function AuthProvider({ children }) {
 
   const signIn = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error || !data?.session?.user) return { error: 'invalid-credentials' };
-    return { error: await hydrateOnce(data.session.user) };
-  };
-
-  /** Email one-time code sign-in (no password). */
-  const sendEmailCode = async email =>
-    supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
-
-  const verifyEmailCode = async (email, token) => {
-    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
-    if (error || !data?.session?.user) return { error: error?.message || 'invalid-code' };
+    if (error || !data?.session?.user) return { error: authErrorMessage(error) };
     return { error: await hydrateOnce(data.session.user) };
   };
 
@@ -125,7 +122,7 @@ export function AuthProvider({ children }) {
     const factor = factors?.totp?.find(f => f.status === 'verified');
     if (fErr || !factor) return { error: 'No authenticator app is set up for this account.' };
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
-    if (error) return { error: 'That code is not valid. Check the time on your phone and try again.' };
+    if (error) return { error: 'That code isn’t valid. Check your authenticator app and try again.' };
     const { data: { user: u } } = await supabase.auth.getUser();
     return { error: await hydrateOnce(u) };
   };
@@ -138,7 +135,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, company, loading, authError, mfaPending, signIn, signOut, sendEmailCode, verifyEmailCode, verifyMfa }}
+      value={{ user, profile, company, loading, authError, mfaPending, signIn, signOut, verifyMfa }}
     >
       {children}
     </AuthContext.Provider>

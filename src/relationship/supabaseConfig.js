@@ -6,6 +6,10 @@ const options = {
   db: { schema: 'snapshot' },
 };
 
+// The auth redirect (e.g. a password-reset link) arrives as a URL fragment. Capture it
+// before supabase-js consumes and clears it, so the callback page knows what kind of link it was.
+export const initialAuthFragment = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : '';
+
 export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, options);
 
 /**
